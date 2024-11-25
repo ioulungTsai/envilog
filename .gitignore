@@ -8,6 +8,7 @@
 *.o
 *.out
 *.elf
+*.bin
 
 # Linked Map files
 *.map
