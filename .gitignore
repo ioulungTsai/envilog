@@ -1,0 +1,42 @@
+# Compiled Assembly files
+*.s
+
+# Dependency files
+*.d
+
+# Compiled Object files
+*.o
+*.out
+*.elf
+
+# Linked Map files
+*.map
+
+# Executables
+*.exe
+*.app
+
+# Compiled dynamic libraries (shared libraries)
+*.dll
+*.so
+
+# Compiled static libraries
+*.a
+
+# macOS system files to be ignored
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# Windows thumbnails and recycle bin
+Thumbs.db
+$RECYCLE.BIN/
+
+# Visual Studio Code workspace file
+.vscode/
+
+# macOS metadata and hidden files
+.Spotlight-V100/
+.Trashes
