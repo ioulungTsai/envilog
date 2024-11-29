@@ -1,43 +1,57 @@
-# Compiled Assembly files
-*.s
+# Build and Output directories
+build/
+sdkconfig.old
 
-# Dependency files
-*.d
+# Compiled Source files
+*.s        # Assembly
+*.o        # Object files
+*.d        # Dependency files
+*.out      # Output files
+*.elf      # ELF binary files
+*.bin      # Binary files
+*.map      # Memory mapping files
 
-# Compiled Object files
-*.o
-*.out
-*.elf
-*.bin
+# Libraries
+*.dll      # Dynamic Link Libraries (Windows)
+*.so       # Shared Objects (Unix)
+*.a        # Static Libraries
+*.lib      # Windows static libraries
 
-# Linked Map files
-*.map
+# ESP32-S3 specific
+sdkconfig.old
+sdkconfig.defaults
+*.dis      # Disassembly files
+*.dump     # Memory dump files
 
-# Executables
-*.exe
-*.app
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp      # Vim swap files
+*.swo
+*.swn
 
-# Compiled dynamic libraries (shared libraries)
-*.dll
-*.so
+# Debug files
+*.log
+core
+core.*
+*.core
 
-# Compiled static libraries
-*.a
-
-# macOS system files to be ignored
+# macOS system files
 .DS_Store
 .AppleDouble
 .LSOverride
 Icon?
 ._*
-
-# Windows thumbnails and recycle bin
-Thumbs.db
-$RECYCLE.BIN/
-
-# Visual Studio Code workspace file
-.vscode/
-
-# macOS metadata and hidden files
 .Spotlight-V100/
 .Trashes
+
+# Windows system files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Project specific temps
+temp/
+tmp/
+.tmp/
