@@ -1,0 +1,28 @@
+menu "EnviLog Configuration"
+
+    config ENVILOG_WIFI_SSID
+        string "WiFi SSID"
+        default "your-ssid"
+        help
+            SSID (network name) to connect to.
+
+    config ENVILOG_WIFI_PASSWORD
+        string "WiFi Password"
+        default "your-password"
+        help
+            WiFi password (WPA or WPA2) to use.
+            Can be left blank if the network is open.
+
+    config ENVILOG_WIFI_CONN_MAX_RETRY
+        int "Maximum retry attempts for WiFi connection"
+        default 5
+        help
+            Set the Maximum retry attempts before giving up connection.
+
+    config ENVILOG_WIFI_CONN_TIMEOUT_MS
+        int "WiFi Connection Timeout (ms)"
+        default 10000
+        help
+            Timeout in milliseconds for WiFi connection attempts.
+
+endmenu

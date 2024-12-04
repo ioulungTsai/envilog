@@ -10,7 +10,7 @@
 #define ENVILOG_DIAG_CHECK_INTERVAL_MS  5000    // Diagnostic check interval
 
 // WiFi configuration
-#define ENVILOG_WIFI_SSID       "your-ssid"      // WiFi SSID
-#define ENVILOG_WIFI_PASS       "your-password"   // WiFi password
-#define ENVILOG_WIFI_RETRY_NUM   5               // Maximum connection retries
-#define ENVILOG_WIFI_CONN_TIMEOUT_MS  10000      // Connection timeout
+#define ENVILOG_WIFI_SSID       CONFIG_ENVILOG_WIFI_SSID
+#define ENVILOG_WIFI_PASS       CONFIG_ENVILOG_WIFI_PASSWORD
+#define ENVILOG_WIFI_RETRY_NUM  CONFIG_ENVILOG_WIFI_CONN_MAX_RETRY
+#define ENVILOG_WIFI_CONN_TIMEOUT_MS CONFIG_ENVILOG_WIFI_CONN_TIMEOUT_MS
