@@ -1,6 +1,8 @@
 # Build and Output directories
 build/
+sdkconfig
 sdkconfig.old
+!sdkconfig.defaults
 
 # Compiled Source files
 *.s        # Assembly
