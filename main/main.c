@@ -35,7 +35,28 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
         esp_wifi_connect();
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         wifi_event_sta_disconnected_t* event = (wifi_event_sta_disconnected_t*) event_data;
-        ESP_LOGW(TAG, "Disconnected from WiFi, reason: %d", event->reason);
+        const char* reason_str;
+        switch (event->reason) {
+            case WIFI_REASON_AUTH_EXPIRE:
+                reason_str = "Auth Expired";
+                break;
+            case WIFI_REASON_AUTH_FAIL:
+                reason_str = "Auth Failed";
+                break;
+            case WIFI_REASON_NO_AP_FOUND:
+                reason_str = "AP Not Found";
+                break;
+            case WIFI_REASON_ASSOC_FAIL:
+                reason_str = "Association Failed";
+                break;
+            case WIFI_REASON_HANDSHAKE_TIMEOUT:
+                reason_str = "Handshake Timeout";
+                break;
+            default:
+                reason_str = "Unknown";
+        }
+        ESP_LOGW(TAG, "Disconnected from WiFi - Reason: %s (%d)", reason_str, event->reason);
+        ESP_LOGW(TAG, "WiFi details - SSID: %s, RSSI: %d", event->ssid, event->rssi);
         
         if (s_retry_num < ENVILOG_WIFI_RETRY_NUM) {
             ESP_LOGI(TAG, "Retry %d/%d connecting to WiFi...", 
