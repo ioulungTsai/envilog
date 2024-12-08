@@ -2,6 +2,8 @@
 #include <string.h>
 #include "esp_log.h"
 #include "esp_err.h"
+#include "esp_timer.h"
+#include "esp_system.h"
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "nvs_flash.h"
@@ -11,10 +13,14 @@
 #include "envilog_config.h"
 
 static const char *TAG = "envilog";
+
+// Event group to signal WiFi connection status
 static EventGroupHandle_t wifi_event_group;
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
+
 static int s_retry_num = 0;
+static bool wifi_is_connected = false;
 
 // Function to scan for specific SSID
 static bool find_target_ap(void) {
@@ -62,41 +68,50 @@ static bool find_target_ap(void) {
     return found;
 }
 
+static void print_diagnostics(void) {
+    ESP_LOGI(TAG, "System Diagnostics:");
+    ESP_LOGI(TAG, "- Free heap: %lu bytes", esp_get_free_heap_size());
+    ESP_LOGI(TAG, "- Minimum free heap: %lu bytes", esp_get_minimum_free_heap_size());
+    ESP_LOGI(TAG, "- Running time: %lld ms", esp_timer_get_time() / 1000);
+    ESP_LOGI(TAG, "- WiFi status: %s", wifi_is_connected ? "Connected" : "Disconnected");
+
+    // Add WiFi RSSI when connected
+    if (wifi_is_connected) {
+        wifi_ap_record_t ap_info;
+        if (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK) {
+            ESP_LOGI(TAG, "- WiFi RSSI: %d dBm", ap_info.rssi);
+        }
+    }
+}
+
+// Timer callback for periodic diagnostics
+static void diagnostic_timer_callback(void* arg) {
+    print_diagnostics();
+}
+
 static void event_handler(void* arg, esp_event_base_t event_base,
                        int32_t event_id, void* event_data) {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
         if (find_target_ap()) {
             ESP_LOGI(TAG, "Target AP found, attempting connection...");
             esp_wifi_connect();
-        } else {
-            ESP_LOGE(TAG, "Target AP not found");
-            xEventGroupSetBits(wifi_event_group, WIFI_FAIL_BIT);
         }
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         wifi_event_sta_disconnected_t* event = (wifi_event_sta_disconnected_t*) event_data;
+        wifi_is_connected = false;
         ESP_LOGW(TAG, "Disconnected from AP. Reason: %d", event->reason);
-        if (s_retry_num < ENVILOG_WIFI_RETRY_NUM) {
-            if (find_target_ap()) {
-                esp_wifi_connect();
-                s_retry_num++;
-                ESP_LOGI(TAG, "Retry %d/%d connecting to WiFi...", 
-                        s_retry_num, ENVILOG_WIFI_RETRY_NUM);
-            } else {
-                ESP_LOGE(TAG, "Target AP not visible during retry");
-                xEventGroupSetBits(wifi_event_group, WIFI_FAIL_BIT);
-            }
-        } else {
-            xEventGroupSetBits(wifi_event_group, WIFI_FAIL_BIT);
-        }
+        s_retry_num = 0;  // Reset retry count on disconnect
+        xEventGroupSetBits(wifi_event_group, WIFI_FAIL_BIT);
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
-        ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
-        ESP_LOGI(TAG, "Got IP: " IPSTR, IP2STR(&event->ip_info.ip));
+        wifi_is_connected = true;
+        ESP_LOGI(TAG, "Got IP: " IPSTR, IP2STR(&((ip_event_got_ip_t*)event_data)->ip_info.ip));
         s_retry_num = 0;
         xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_BIT);
     }
 }
 
-static esp_err_t wifi_connect(void) {
+static esp_err_t wifi_connect(void)
+{
     esp_err_t ret = ESP_OK;
     wifi_event_group = xEventGroupCreate();
 
@@ -119,30 +134,34 @@ static esp_err_t wifi_connect(void) {
     ESP_LOGI(TAG, "Setting WiFi configuration...");
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
 
-    ESP_LOGI(TAG, "Starting connection attempt...");
+    ESP_LOGI(TAG, "Starting WiFi...");
     ESP_ERROR_CHECK(esp_wifi_start());
 
+    // Only wait for initial connection result
     EventBits_t bits = xEventGroupWaitBits(wifi_event_group,
             WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
-            pdFALSE,
-            pdFALSE,
+            pdTRUE,  // Clear bits after getting them
+            pdFALSE, // Don't wait for all bits
             pdMS_TO_TICKS(ENVILOG_WIFI_CONN_TIMEOUT_MS));
 
     if (bits & WIFI_CONNECTED_BIT) {
-        ESP_LOGI(TAG, "Successfully connected to WiFi");
+        ESP_LOGI(TAG, "WiFi connected");
         ret = ESP_OK;
     } else if (bits & WIFI_FAIL_BIT) {
-        ESP_LOGE(TAG, "Failed to connect to WiFi");
+        ESP_LOGI(TAG, "Failed to connect to WiFi");
         ret = ESP_FAIL;
     } else {
-        ESP_LOGE(TAG, "Connection timeout");
+        ESP_LOGI(TAG, "Initial connection attempt timed out");
         ret = ESP_ERR_TIMEOUT;
     }
 
     return ret;
 }
 
-void app_main(void) {
+void app_main(void)
+{
+    // Initialize logging
+    esp_log_level_set(TAG, ESP_LOG_INFO);
     ESP_LOGI(TAG, "EnviLog v%d.%d.%d starting...", 
              ENVILOG_VERSION_MAJOR, ENVILOG_VERSION_MINOR, ENVILOG_VERSION_PATCH);
 
@@ -173,10 +192,36 @@ void app_main(void) {
     // Try to connect
     ret = wifi_connect();
 
+    // Create periodic timer for diagnostics
+    const esp_timer_create_args_t timer_args = {
+        .callback = diagnostic_timer_callback,
+        .name = "diagnostic_timer"
+    };
+    esp_timer_handle_t diagnostic_timer;
+    
+    ret = esp_timer_create(&timer_args, &diagnostic_timer);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to create diagnostic timer: %s", esp_err_to_name(ret));
+        return;
+    }
+
+    // Start periodic diagnostics
+    ret = esp_timer_start_periodic(diagnostic_timer, ENVILOG_DIAG_CHECK_INTERVAL_MS * 1000);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start diagnostic timer: %s", esp_err_to_name(ret));
+        return;
+    }
+
+    ESP_LOGI(TAG, "System initialized successfully");
+    print_diagnostics();
+
     // Main loop
     while (1) {
-        ESP_LOGW(TAG, "System running - WiFi Status: %s", 
-                 (ret == ESP_OK) ? "Connected" : "Disconnected");
+        if (!wifi_is_connected) {
+            if (find_target_ap()) {
+                esp_wifi_connect();
+            }
+        }
         vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }
