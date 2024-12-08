@@ -22,11 +22,70 @@ static EventGroupHandle_t wifi_event_group;
 // WiFi connection retry count
 static int s_retry_num = 0;
 
-// Function prototypes
-static void print_diagnostics(void);
-static esp_err_t wifi_init_sta(void);
-static void wifi_event_handler(void* arg, esp_event_base_t event_base,
-                             int32_t event_id, void* event_data);
+static void wifi_scan(void)
+{
+    ESP_LOGI(TAG, "Starting WiFi scan...");
+    
+    wifi_scan_config_t scan_config = {
+        .ssid = 0,
+        .bssid = 0,
+        .channel = 0,
+        .show_hidden = true
+    };
+
+    // Start scan
+    ESP_ERROR_CHECK(esp_wifi_scan_start(&scan_config, true));
+
+    // Get number of APs found
+    uint16_t ap_count = 0;
+    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
+    ESP_LOGI(TAG, "Found %d access points:", ap_count);
+
+    // Allocate memory for AP records
+    wifi_ap_record_t *ap_records = malloc(ap_count * sizeof(wifi_ap_record_t));
+    if (ap_records == NULL) {
+        ESP_LOGE(TAG, "Failed to malloc for AP records");
+        return;
+    }
+
+    // Get AP records
+    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&ap_count, ap_records));
+
+    // Print AP details
+    for (int i = 0; i < ap_count; i++) {
+        ESP_LOGI(TAG, "AP %d:", i + 1);
+        ESP_LOGI(TAG, "  SSID: %s", ap_records[i].ssid);
+        ESP_LOGI(TAG, "  RSSI: %d", ap_records[i].rssi);
+        switch(ap_records[i].authmode) {
+            case WIFI_AUTH_OPEN:
+                ESP_LOGI(TAG, "  Auth: OPEN");
+                break;
+            case WIFI_AUTH_WEP:
+                ESP_LOGI(TAG, "  Auth: WEP");
+                break;
+            case WIFI_AUTH_WPA_PSK:
+                ESP_LOGI(TAG, "  Auth: WPA_PSK");
+                break;
+            case WIFI_AUTH_WPA2_PSK:
+                ESP_LOGI(TAG, "  Auth: WPA2_PSK");
+                break;
+            case WIFI_AUTH_WPA_WPA2_PSK:
+                ESP_LOGI(TAG, "  Auth: WPA_WPA2_PSK");
+                break;
+            case WIFI_AUTH_WPA3_PSK:
+                ESP_LOGI(TAG, "  Auth: WPA3_PSK");
+                break;
+            case WIFI_AUTH_WPA2_WPA3_PSK:
+                ESP_LOGI(TAG, "  Auth: WPA2_WPA3_PSK");
+                break;
+            default:
+                ESP_LOGI(TAG, "  Auth: UNKNOWN");
+                break;
+        }
+    }
+
+    free(ap_records);
+}
 
 // WiFi event handler
 static void wifi_event_handler(void* arg, esp_event_base_t event_base,
@@ -62,7 +121,6 @@ static esp_err_t wifi_init_sta(void)
     esp_err_t ret = ESP_OK;
     wifi_event_group = xEventGroupCreate();
 
-    // Log WiFi configuration
     ESP_LOGI(TAG, "WiFi Configuration:");
     ESP_LOGI(TAG, "- SSID: %s", ENVILOG_WIFI_SSID);
     ESP_LOGI(TAG, "- Password length: %d", strlen(ENVILOG_WIFI_PASS));
@@ -86,7 +144,7 @@ static esp_err_t wifi_init_sta(void)
         .sta = {
             .ssid = ENVILOG_WIFI_SSID,
             .password = ENVILOG_WIFI_PASS,
-            .threshold.authmode = WIFI_AUTH_WPA2_WPA3_PSK,  // Updated for WPA2/WPA3
+            .threshold.authmode = WIFI_AUTH_WPA2_WPA3_PSK,
             .sae_pwe_h2e = WPA3_SAE_PWE_BOTH,
         },
     };
@@ -94,6 +152,9 @@ static esp_err_t wifi_init_sta(void)
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
+
+    // Perform WiFi scan before attempting to connect
+    wifi_scan();
 
     // Wait for WiFi connection
     EventBits_t bits = xEventGroupWaitBits(wifi_event_group,
@@ -116,7 +177,6 @@ static esp_err_t wifi_init_sta(void)
     return ret;
 }
 
-// Function to print system diagnostics
 static void print_diagnostics(void) {
     ESP_LOGI(TAG, "System Diagnostics:");
     ESP_LOGI(TAG, "- Free heap: %lu bytes", esp_get_free_heap_size());
