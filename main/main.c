@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "esp_log.h"
 #include "esp_err.h"
 #include "esp_wifi.h"
@@ -133,23 +134,39 @@ static esp_err_t wifi_connect(void)
     ESP_LOGI(TAG, "Setting WiFi configuration...");
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     
-    ESP_LOGI(TAG, "Starting connection...");
+    ESP_LOGI(TAG, "Starting connection attempt...");
     ESP_ERROR_CHECK(esp_wifi_start());
 
+    ESP_LOGI(TAG, "Waiting for WiFi connection (timeout: %d ms)...", ENVILOG_WIFI_CONN_TIMEOUT_MS);
     EventBits_t bits = xEventGroupWaitBits(wifi_event_group,
             WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
             pdFALSE,
             pdFALSE,
             pdMS_TO_TICKS(ENVILOG_WIFI_CONN_TIMEOUT_MS));
 
+    // Check connection status
+    wifi_config_t current_conf;
+    esp_wifi_get_config(WIFI_IF_STA, &current_conf);
+    ESP_LOGI(TAG, "Connection attempt details:");
+    ESP_LOGI(TAG, "- SSID: %s", current_conf.sta.ssid);
+    ESP_LOGI(TAG, "- Auth Mode: WPA2_PSK");
+    ESP_LOGI(TAG, "- Password Length: %d", strlen((char*)current_conf.sta.password));
+
     if (bits & WIFI_CONNECTED_BIT) {
-        ESP_LOGI(TAG, "Connected to WiFi");
+        ESP_LOGI(TAG, "Successfully connected to WiFi");
         ret = ESP_OK;
     } else if (bits & WIFI_FAIL_BIT) {
         ESP_LOGE(TAG, "Failed to connect to WiFi");
         ret = ESP_FAIL;
     } else {
-        ESP_LOGE(TAG, "WiFi connection timeout");
+        ESP_LOGE(TAG, "WiFi connection timeout - No response from AP");
+        // Get current WiFi state
+        wifi_ap_record_t ap_info;
+        if (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK) {
+            ESP_LOGI(TAG, "Last known AP state:");
+            ESP_LOGI(TAG, "- RSSI: %d", ap_info.rssi);
+            ESP_LOGI(TAG, "- Channel: %d", ap_info.primary);
+        }
         ret = ESP_ERR_TIMEOUT;
     }
 
@@ -198,6 +215,8 @@ void app_main(void)
 
     // Main loop
     while (1) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        ESP_LOGW(TAG, "System running - WiFi Status: %s", 
+             (ret == ESP_OK) ? "Connected" : "Disconnected");
+        vTaskDelay(pdMS_TO_TICKS(5000));  // Log every 5 seconds
     }
 }
