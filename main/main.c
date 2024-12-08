@@ -128,6 +128,11 @@ static esp_err_t wifi_connect(void)
             .ssid = ENVILOG_WIFI_SSID,
             .password = ENVILOG_WIFI_PASS,
             .threshold.authmode = WIFI_AUTH_WPA2_PSK,
+            .sae_pwe_h2e = WPA3_SAE_PWE_BOTH,
+            .pmf_cfg = {
+                .capable = true,
+                .required = false
+            },
         },
     };
 
