@@ -86,7 +86,8 @@ static esp_err_t wifi_init_sta(void)
         .sta = {
             .ssid = ENVILOG_WIFI_SSID,
             .password = ENVILOG_WIFI_PASS,
-            .threshold.authmode = WIFI_AUTH_WPA2_PSK,
+            .threshold.authmode = WIFI_AUTH_WPA2_WPA3_PSK,  // Updated for WPA2/WPA3
+            .sae_pwe_h2e = WPA3_SAE_PWE_BOTH,
         },
     };
 
