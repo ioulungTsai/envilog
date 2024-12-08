@@ -123,6 +123,11 @@ static esp_err_t wifi_connect(void)
     esp_err_t ret = ESP_OK;
     wifi_event_group = xEventGroupCreate();
 
+    // Debug print actual credentials being used
+    ESP_LOGI(TAG, "WiFi Credentials Debug:");
+    ESP_LOGI(TAG, "- SSID: '%s' (length: %d)", ENVILOG_WIFI_SSID, strlen(ENVILOG_WIFI_SSID));
+    ESP_LOGI(TAG, "- Password: '%s' (length: %d)", ENVILOG_WIFI_PASS, strlen(ENVILOG_WIFI_PASS));
+
     wifi_config_t wifi_config = {
         .sta = {
             .ssid = ENVILOG_WIFI_SSID,
@@ -138,7 +143,7 @@ static esp_err_t wifi_connect(void)
 
     ESP_LOGI(TAG, "Setting WiFi configuration...");
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
-    
+
     ESP_LOGI(TAG, "Starting connection attempt...");
     ESP_ERROR_CHECK(esp_wifi_start());
 
