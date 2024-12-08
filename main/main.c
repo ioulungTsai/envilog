@@ -11,16 +11,15 @@
 #include "envilog_config.h"
 
 static const char *TAG = "envilog";
-
-// Event group for WiFi connection
 static EventGroupHandle_t wifi_event_group;
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
-
 static int s_retry_num = 0;
 
-static void wifi_scan(void)
-{
+// Function to scan for specific SSID
+static bool find_target_ap(void) {
+    ESP_LOGI(TAG, "Scanning for SSID: %s", ENVILOG_WIFI_SSID);
+    
     wifi_scan_config_t scan_config = {
         .ssid = 0,
         .bssid = 0,
@@ -28,85 +27,64 @@ static void wifi_scan(void)
         .show_hidden = true
     };
 
-    ESP_LOGI(TAG, "Starting WiFi scan...");
     ESP_ERROR_CHECK(esp_wifi_scan_start(&scan_config, true));
 
     uint16_t ap_count = 0;
     ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
-    ESP_LOGI(TAG, "Found %d access points:", ap_count);
-
+    
     if (ap_count == 0) {
-        ESP_LOGI(TAG, "No networks found");
-        return;
+        ESP_LOGW(TAG, "No networks found");
+        return false;
     }
 
     wifi_ap_record_t *ap_records = malloc(ap_count * sizeof(wifi_ap_record_t));
     if (ap_records == NULL) {
         ESP_LOGE(TAG, "Failed to malloc for AP records");
-        return;
+        return false;
     }
 
     ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&ap_count, ap_records));
 
+    bool found = false;
     for (int i = 0; i < ap_count; i++) {
-        ESP_LOGI(TAG, "AP %2d:", i + 1);
-        ESP_LOGI(TAG, "       SSID: %s", ap_records[i].ssid);
-        ESP_LOGI(TAG, "       RSSI: %d dBm", ap_records[i].rssi);
-        ESP_LOGI(TAG, "    Channel: %d", ap_records[i].primary);
-        
-        char *auth_mode = "UNKNOWN";
-        switch(ap_records[i].authmode) {
-            case WIFI_AUTH_OPEN:           auth_mode = "OPEN"; break;
-            case WIFI_AUTH_WEP:            auth_mode = "WEP"; break;
-            case WIFI_AUTH_WPA_PSK:        auth_mode = "WPA_PSK"; break;
-            case WIFI_AUTH_WPA2_PSK:       auth_mode = "WPA2_PSK"; break;
-            case WIFI_AUTH_WPA_WPA2_PSK:   auth_mode = "WPA_WPA2_PSK"; break;
-            case WIFI_AUTH_WPA3_PSK:       auth_mode = "WPA3_PSK"; break;
-            case WIFI_AUTH_WPA2_WPA3_PSK:  auth_mode = "WPA2_WPA3_PSK"; break;
-            default: break;
+        if (strcmp((char *)ap_records[i].ssid, ENVILOG_WIFI_SSID) == 0) {
+            ESP_LOGI(TAG, "Found target AP:");
+            ESP_LOGI(TAG, "       SSID: %s", ap_records[i].ssid);
+            ESP_LOGI(TAG, "       RSSI: %d dBm", ap_records[i].rssi);
+            ESP_LOGI(TAG, "    Channel: %d", ap_records[i].primary);
+            ESP_LOGI(TAG, "  Auth Mode: %d", ap_records[i].authmode);
+            found = true;
+            break;
         }
-        ESP_LOGI(TAG, "   Auth Mode: %s", auth_mode);
-        ESP_LOGI(TAG, "------------");
     }
 
     free(ap_records);
+    return found;
 }
 
 static void event_handler(void* arg, esp_event_base_t event_base,
-                         int32_t event_id, void* event_data)
-{
+                       int32_t event_id, void* event_data) {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
-        ESP_LOGI(TAG, "Connecting to SSID: %s", ENVILOG_WIFI_SSID);
-        esp_wifi_connect();
+        if (find_target_ap()) {
+            ESP_LOGI(TAG, "Target AP found, attempting connection...");
+            esp_wifi_connect();
+        } else {
+            ESP_LOGE(TAG, "Target AP not found");
+            xEventGroupSetBits(wifi_event_group, WIFI_FAIL_BIT);
+        }
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         wifi_event_sta_disconnected_t* event = (wifi_event_sta_disconnected_t*) event_data;
-        const char* reason_str;
-        switch (event->reason) {
-            case WIFI_REASON_AUTH_EXPIRE:
-                reason_str = "Auth Expired";
-                break;
-            case WIFI_REASON_AUTH_FAIL:
-                reason_str = "Auth Failed";
-                break;
-            case WIFI_REASON_NO_AP_FOUND:
-                reason_str = "AP Not Found";
-                break;
-            case WIFI_REASON_ASSOC_FAIL:
-                reason_str = "Association Failed";
-                break;
-            case WIFI_REASON_HANDSHAKE_TIMEOUT:
-                reason_str = "Handshake Timeout";
-                break;
-            default:
-                reason_str = "Unknown";
-        }
-        ESP_LOGW(TAG, "Disconnected - Reason: %s (%d)", reason_str, event->reason);
-        
+        ESP_LOGW(TAG, "Disconnected from AP. Reason: %d", event->reason);
         if (s_retry_num < ENVILOG_WIFI_RETRY_NUM) {
-            esp_wifi_connect();
-            s_retry_num++;
-            ESP_LOGI(TAG, "Retry %d/%d connecting to WiFi...", 
-                    s_retry_num, ENVILOG_WIFI_RETRY_NUM);
+            if (find_target_ap()) {
+                esp_wifi_connect();
+                s_retry_num++;
+                ESP_LOGI(TAG, "Retry %d/%d connecting to WiFi...", 
+                        s_retry_num, ENVILOG_WIFI_RETRY_NUM);
+            } else {
+                ESP_LOGE(TAG, "Target AP not visible during retry");
+                xEventGroupSetBits(wifi_event_group, WIFI_FAIL_BIT);
+            }
         } else {
             xEventGroupSetBits(wifi_event_group, WIFI_FAIL_BIT);
         }
@@ -118,12 +96,10 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     }
 }
 
-static esp_err_t wifi_connect(void)
-{
+static esp_err_t wifi_connect(void) {
     esp_err_t ret = ESP_OK;
     wifi_event_group = xEventGroupCreate();
 
-    // Debug print actual credentials being used
     ESP_LOGI(TAG, "WiFi Credentials Debug:");
     ESP_LOGI(TAG, "- SSID: '%s' (length: %d)", ENVILOG_WIFI_SSID, strlen(ENVILOG_WIFI_SSID));
     ESP_LOGI(TAG, "- Password: '%s' (length: %d)", ENVILOG_WIFI_PASS, strlen(ENVILOG_WIFI_PASS));
@@ -133,7 +109,6 @@ static esp_err_t wifi_connect(void)
             .ssid = ENVILOG_WIFI_SSID,
             .password = ENVILOG_WIFI_PASS,
             .threshold.authmode = WIFI_AUTH_WPA2_PSK,
-            .sae_pwe_h2e = WPA3_SAE_PWE_BOTH,
             .pmf_cfg = {
                 .capable = true,
                 .required = false
@@ -147,20 +122,11 @@ static esp_err_t wifi_connect(void)
     ESP_LOGI(TAG, "Starting connection attempt...");
     ESP_ERROR_CHECK(esp_wifi_start());
 
-    ESP_LOGI(TAG, "Waiting for WiFi connection (timeout: %d ms)...", ENVILOG_WIFI_CONN_TIMEOUT_MS);
     EventBits_t bits = xEventGroupWaitBits(wifi_event_group,
             WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
             pdFALSE,
             pdFALSE,
             pdMS_TO_TICKS(ENVILOG_WIFI_CONN_TIMEOUT_MS));
-
-    // Check connection status
-    wifi_config_t current_conf;
-    esp_wifi_get_config(WIFI_IF_STA, &current_conf);
-    ESP_LOGI(TAG, "Connection attempt details:");
-    ESP_LOGI(TAG, "- SSID: %s", current_conf.sta.ssid);
-    ESP_LOGI(TAG, "- Auth Mode: WPA2_PSK");
-    ESP_LOGI(TAG, "- Password Length: %d", strlen((char*)current_conf.sta.password));
 
     if (bits & WIFI_CONNECTED_BIT) {
         ESP_LOGI(TAG, "Successfully connected to WiFi");
@@ -169,24 +135,14 @@ static esp_err_t wifi_connect(void)
         ESP_LOGE(TAG, "Failed to connect to WiFi");
         ret = ESP_FAIL;
     } else {
-        ESP_LOGE(TAG, "WiFi connection timeout - No response from AP");
-        // Get current WiFi state
-        wifi_ap_record_t ap_info;
-        if (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK) {
-            ESP_LOGI(TAG, "Last known AP state:");
-            ESP_LOGI(TAG, "- RSSI: %d", ap_info.rssi);
-            ESP_LOGI(TAG, "- Channel: %d", ap_info.primary);
-        }
+        ESP_LOGE(TAG, "Connection timeout");
         ret = ESP_ERR_TIMEOUT;
     }
 
     return ret;
 }
 
-void app_main(void)
-{
-    // Initialize logging
-    esp_log_level_set(TAG, ESP_LOG_INFO);
+void app_main(void) {
     ESP_LOGI(TAG, "EnviLog v%d.%d.%d starting...", 
              ENVILOG_VERSION_MAJOR, ENVILOG_VERSION_MINOR, ENVILOG_VERSION_PATCH);
 
@@ -198,7 +154,7 @@ void app_main(void)
     }
     ESP_ERROR_CHECK(ret);
 
-    // Initialize TCP/IP adapter
+    // Initialize network interface
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     esp_netif_t *sta_netif = esp_netif_create_default_wifi_sta();
@@ -207,26 +163,20 @@ void app_main(void)
     // Initialize WiFi
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_start());
-
-    // First scan for networks
-    wifi_scan();
-
+    
     // Register event handlers
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL));
 
-    // Then try to connect
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+
+    // Try to connect
     ret = wifi_connect();
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "WiFi connection failed");
-    }
 
     // Main loop
     while (1) {
         ESP_LOGW(TAG, "System running - WiFi Status: %s", 
-             (ret == ESP_OK) ? "Connected" : "Disconnected");
-        vTaskDelay(pdMS_TO_TICKS(5000));  // Log every 5 seconds
+                 (ret == ESP_OK) ? "Connected" : "Disconnected");
+        vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }
