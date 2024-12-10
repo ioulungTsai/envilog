@@ -11,6 +11,7 @@
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
 #include "envilog_config.h"
+#include "task_manager.h"
 
 static const char *TAG = "envilog";
 
@@ -82,6 +83,26 @@ static void print_diagnostics(void) {
             ESP_LOGI(TAG, "- WiFi RSSI: %d dBm", ap_info.rssi);
         }
     }
+
+    // Add task manager diagnostics
+    TaskStatus_t *task_status_array;
+    UBaseType_t task_count = uxTaskGetNumberOfTasks();
+    task_status_array = pvPortMalloc(task_count * sizeof(TaskStatus_t));
+    
+    if (task_status_array != NULL) {
+        uint32_t total_runtime;
+        task_count = uxTaskGetSystemState(task_status_array, task_count, &total_runtime);
+        
+        ESP_LOGI(TAG, "Task Status:");
+        for (int i = 0; i < task_count; i++) {
+            ESP_LOGI(TAG, "- %s: %s (Priority: %d)",
+                     task_status_array[i].pcTaskName,
+                     get_task_state_name(task_status_array[i].eCurrentState),
+                     task_status_array[i].uxCurrentPriority);
+        }
+        
+        vPortFree(task_status_array);
+    }
 }
 
 // Timer callback for periodic diagnostics
@@ -102,11 +123,25 @@ static void event_handler(void* arg, esp_event_base_t event_base,
         ESP_LOGW(TAG, "Disconnected from AP. Reason: %d", event->reason);
         s_retry_num = 0;  // Reset retry count on disconnect
         xEventGroupSetBits(wifi_event_group, WIFI_FAIL_BIT);
+        
+        // Update system event group
+        EventGroupHandle_t system_events = get_system_event_group();
+        if (system_events != NULL) {
+            xEventGroupSetBits(system_events, SYSTEM_EVENT_WIFI_DISCONNECTED);
+            xEventGroupClearBits(system_events, SYSTEM_EVENT_WIFI_CONNECTED);
+        }
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         wifi_is_connected = true;
         ESP_LOGI(TAG, "Got IP: " IPSTR, IP2STR(&((ip_event_got_ip_t*)event_data)->ip_info.ip));
         s_retry_num = 0;
         xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_BIT);
+        
+        // Update system event group
+        EventGroupHandle_t system_events = get_system_event_group();
+        if (system_events != NULL) {
+            xEventGroupSetBits(system_events, SYSTEM_EVENT_WIFI_CONNECTED);
+            xEventGroupClearBits(system_events, SYSTEM_EVENT_WIFI_DISCONNECTED);
+        }
     }
 }
 
@@ -173,6 +208,10 @@ void app_main(void)
     }
     ESP_ERROR_CHECK(ret);
 
+    // Initialize task manager
+    ESP_ERROR_CHECK(task_manager_init());
+    ESP_LOGI(TAG, "Task manager initialized");
+
     // Initialize network interface
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
@@ -188,6 +227,10 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL));
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+
+    // Create system monitor task
+    ESP_ERROR_CHECK(create_system_monitor_task());
+    ESP_LOGI(TAG, "System monitor task created");
 
     // Try to connect
     ret = wifi_connect();
