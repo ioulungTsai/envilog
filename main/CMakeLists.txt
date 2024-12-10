@@ -6,5 +6,5 @@ idf_component_register(
              "esp_timer" 
              "esp_wifi"
              "nvs_flash" 
-    PRIV_REQUIRES "task_manager"
+    PRIV_REQUIRES "task_manager" "envilog_config" "network_manager"
 )
