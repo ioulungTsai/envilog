@@ -9,17 +9,15 @@
 static const char *TAG = "network_manager";
 
 // Network manager state
-static bool wifi_initialized = false;
-static bool wifi_connected = false;
 static TaskHandle_t network_task_handle = NULL;
 static EventGroupHandle_t network_event_group = NULL;
+static bool immediate_retry = true;  // Added control flag
 static int retry_count = 0;
 
 // Forward declarations
 static void network_task(void *pvParameters);
 static void wifi_event_handler(void* arg, esp_event_base_t event_base,
                              int32_t event_id, void* event_data);
-static bool scan_for_ap(void);
 
 esp_err_t network_manager_init(void)
 {
@@ -40,7 +38,7 @@ esp_err_t network_manager_init(void)
     // Initialize WiFi with default config
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-    
+
     // Register event handlers
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, 
                                              &wifi_event_handler, NULL));
@@ -49,26 +47,15 @@ esp_err_t network_manager_init(void)
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
 
-    wifi_initialized = true;
     return ESP_OK;
 }
 
 esp_err_t network_manager_start(void)
 {
-    if (!wifi_initialized) {
-        ESP_LOGE(TAG, "Network manager not initialized");
-        return ESP_ERR_INVALID_STATE;
-    }
-
-    // Create network task
-    BaseType_t ret = xTaskCreate(
-        network_task,
-        "network_task",
-        TASK_STACK_SIZE_NETWORK,
-        NULL,
-        TASK_PRIORITY_NETWORK,
-        &network_task_handle
-    );
+    BaseType_t ret = xTaskCreate(network_task, "network_task",
+                                TASK_STACK_SIZE_NETWORK,
+                                NULL, TASK_PRIORITY_NETWORK,
+                                &network_task_handle);
 
     if (ret != pdPASS) {
         ESP_LOGE(TAG, "Failed to create network task");
@@ -99,18 +86,20 @@ static void network_task(void *pvParameters)
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
 
-    // Task main loop
+    const TickType_t retry_interval = pdMS_TO_TICKS(30000);  // 30 second interval
+
     while (1) {
-        if (!wifi_connected) {
-            if (scan_for_ap()) {
-                ESP_LOGI(TAG, "Target AP found, attempting connection");
-                esp_wifi_connect();
-            } else {
-                ESP_LOGW(TAG, "Target AP not found");
-                vTaskDelay(pdMS_TO_TICKS(5000));  // Wait before retry
-            }
+        EventBits_t bits = xEventGroupGetBits(network_event_group);
+        // Only attempt periodic reconnection if:
+        // 1. Not connected
+        // 2. Immediate retries are exhausted
+        if (!(bits & NETWORK_EVENT_WIFI_CONNECTED) && !immediate_retry) {
+            ESP_LOGI(TAG, "Attempting periodic reconnection");
+            esp_wifi_connect();
+            vTaskDelay(retry_interval);  // Wait between attempts
+        } else {
+            vTaskDelay(pdMS_TO_TICKS(1000));  // Regular status check interval
         }
-        vTaskDelay(pdMS_TO_TICKS(1000));  // Regular check interval
     }
 }
 
@@ -121,101 +110,42 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
         switch (event_id) {
             case WIFI_EVENT_STA_START:
                 ESP_LOGI(TAG, "WiFi station started");
+                esp_wifi_connect();
                 break;
 
-            case WIFI_EVENT_STA_DISCONNECTED: {
-                wifi_event_sta_disconnected_t* event = (wifi_event_sta_disconnected_t*) event_data;
-                ESP_LOGW(TAG, "Disconnected from AP (reason: %d)", event->reason);
-                wifi_connected = false;
-                retry_count = 0;  // Reset retry count on disconnect
-
-                // Set event bits
+            case WIFI_EVENT_STA_DISCONNECTED:
                 xEventGroupClearBits(network_event_group, NETWORK_EVENT_WIFI_CONNECTED);
                 xEventGroupSetBits(network_event_group, NETWORK_EVENT_WIFI_DISCONNECTED);
-                
-                // Update system event group
-                EventGroupHandle_t system_events = get_system_event_group();
-                if (system_events != NULL) {
-                    xEventGroupSetBits(system_events, SYSTEM_EVENT_WIFI_DISCONNECTED);
-                    xEventGroupClearBits(system_events, SYSTEM_EVENT_WIFI_CONNECTED);
+
+                if (immediate_retry && retry_count < ENVILOG_WIFI_RETRY_NUM) {
+                    ESP_LOGI(TAG, "Retry connecting to AP (%d/%d)", 
+                            retry_count + 1, ENVILOG_WIFI_RETRY_NUM);
+                    esp_wifi_connect();
+                    retry_count++;
+                } else if (retry_count == ENVILOG_WIFI_RETRY_NUM) {
+                    ESP_LOGW(TAG, "Failed after maximum retries, switching to periodic reconnection");
+                    immediate_retry = false;  // Switch to periodic mode
+                    retry_count++;  // Prevent repeated warnings
                 }
                 break;
-            }
-
-            default:
+            
+            case WIFI_EVENT_STA_CONNECTED:
+                ESP_LOGI(TAG, "Connected to AP");
                 break;
         }
-    }
-    else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
-        ESP_LOGI(TAG, "Got IP: " IPSTR, IP2STR(&event->ip_info.ip));
-        wifi_connected = true;
-        retry_count = 0;
-
-        // Set event bits
-        xEventGroupClearBits(network_event_group, NETWORK_EVENT_WIFI_DISCONNECTED);
+        ESP_LOGI(TAG, "Got IP address: " IPSTR, IP2STR(&event->ip_info.ip));
         xEventGroupSetBits(network_event_group, NETWORK_EVENT_WIFI_CONNECTED);
-
-        // Update system event group
-        EventGroupHandle_t system_events = get_system_event_group();
-        if (system_events != NULL) {
-            xEventGroupSetBits(system_events, SYSTEM_EVENT_WIFI_CONNECTED);
-            xEventGroupClearBits(system_events, SYSTEM_EVENT_WIFI_DISCONNECTED);
-        }
+        xEventGroupClearBits(network_event_group, NETWORK_EVENT_WIFI_DISCONNECTED);
+        retry_count = 0;         // Reset retry counter
+        immediate_retry = true; // Reset to immediate retry mode
     }
-}
-
-static bool scan_for_ap(void)
-{
-    ESP_LOGD(TAG, "Scanning for SSID: %s", ENVILOG_WIFI_SSID);
-    
-    wifi_scan_config_t scan_config = {
-        .ssid = 0,
-        .bssid = 0,
-        .channel = 0,
-        .show_hidden = true
-    };
-
-    ESP_ERROR_CHECK(esp_wifi_scan_start(&scan_config, true));
-
-    uint16_t ap_count = 0;
-    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
-    
-    if (ap_count == 0) {
-        ESP_LOGW(TAG, "No networks found");
-        return false;
-    }
-
-    wifi_ap_record_t *ap_records = malloc(ap_count * sizeof(wifi_ap_record_t));
-    if (ap_records == NULL) {
-        ESP_LOGE(TAG, "Failed to malloc for AP records");
-        return false;
-    }
-
-    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&ap_count, ap_records));
-
-    bool found = false;
-    for (int i = 0; i < ap_count; i++) {
-        if (strcmp((char *)ap_records[i].ssid, ENVILOG_WIFI_SSID) == 0) {
-            ESP_LOGD(TAG, "Found target AP: %s (RSSI: %d dBm, Channel: %d)", 
-                     ap_records[i].ssid, ap_records[i].rssi, ap_records[i].primary);
-            found = true;
-            break;
-        }
-    }
-
-    free(ap_records);
-    return found;
-}
-
-EventGroupHandle_t network_manager_get_event_group(void)
-{
-    return network_event_group;
 }
 
 esp_err_t network_manager_get_rssi(int8_t *rssi)
 {
-    if (!wifi_connected || rssi == NULL) {
+    if (!network_manager_is_connected() || rssi == NULL) {
         return ESP_ERR_INVALID_STATE;
     }
 
@@ -229,5 +159,5 @@ esp_err_t network_manager_get_rssi(int8_t *rssi)
 
 bool network_manager_is_connected(void)
 {
-    return wifi_connected;
+    return (xEventGroupGetBits(network_event_group) & NETWORK_EVENT_WIFI_CONNECTED) != 0;
 }
