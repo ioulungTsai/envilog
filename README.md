@@ -16,18 +16,26 @@ EnviLog is an embedded system project based on ESP32-S3 for environmental monito
 ## Project Structure
 ```
 envilog/
+├── components/
+│   ├── envilog_config/        # Project configurations
+│   │   └── include/
+│   │       └── envilog_config.h
+│   ├── network_manager/       # WiFi and network handling
+│   │   └── include/
+│   │       └── network_manager.h
+│   └── task_manager/         # FreeRTOS task management
+│       └── include/
+│           └── task_manager.h
 ├── main/
-│   ├── envilog_config.h    # Project configurations
-│   ├── main.c             # Main application code
-│   └── CMakeLists.txt     # Main component CMake
-├── CMakeLists.txt         # Project CMake configuration
-└── sdkconfig              # Project configuration
+│   ├── CMakeLists.txt
+│   ├── Kconfig.projbuild     # Project configuration options
+│   └── main.c               # Application entry point
+└── CMakeLists.txt           # Project CMake configuration
 ```
 
 Future additions:
-- Network components
-- Display drivers
-- Sensor drivers
+- Display driver component
+- Sensor driver components
 - Web interface
 - MQTT client
 - Data management
@@ -69,14 +77,25 @@ idf.py clean
   - Logging framework setup
   - Error handling implemented
   - Basic diagnostics working
-- [ ] Network stack implementation
+- [x] Network stack implementation
+  - WiFi station mode
+  - Connection management
+  - Error recovery
+- [x] Task Management (Partial)
+  - System monitor task
+  - Network task
+  - Event groups
+  - Task priorities
 - [ ] Display system integration
 - [ ] Sensor integration
+- [ ] Web interface
+- [ ] MQTT integration
 
 ## Version
-Current version: v0.1.0
-- Basic system configuration
-- Diagnostic monitoring
+Current version: v0.2.0
+- Network stack implementation
+- Task management framework
+- System monitoring
 - Error handling framework
 
 ## Contributing
