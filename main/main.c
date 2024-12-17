@@ -5,6 +5,7 @@
 #include "esp_timer.h"
 #include "esp_system.h"
 #include "esp_event.h"
+#include "esp_task_wdt.h"
 #include "nvs_flash.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -71,6 +72,15 @@ void app_main(void)
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
+
+    // Initialize TWDT here
+    esp_task_wdt_config_t twdt_config = {
+        .timeout_ms = ENVILOG_TASK_WDT_TIMEOUT_MS,
+        .idle_core_mask = 0,     // Don't watch idle tasks
+        .trigger_panic = true    // Trigger panic on timeout
+    };
+    ESP_ERROR_CHECK(esp_task_wdt_reconfigure(&twdt_config));
+    ESP_LOGI(TAG, "Task watchdog reconfigured");
 
     // Initialize event loop
     ESP_ERROR_CHECK(esp_event_loop_create_default());

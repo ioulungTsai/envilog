@@ -31,6 +31,7 @@ typedef struct {
     uint32_t last_wake_time;
     uint32_t execution_count;
     bool healthy;
+    bool wdt_subscribed;  
 } task_status_t;
 
 // Task initialization

@@ -5,6 +5,10 @@
 #include "network_manager.h"
 #include "task_manager.h"
 #include "envilog_config.h"
+#include "esp_timer.h"
+#include "esp_task_wdt.h"
+
+#define TEST_WDT_HANG
 
 static const char *TAG = "network_manager";
 
@@ -86,9 +90,26 @@ static void network_task(void *pvParameters)
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
 
+    // Subscribe to WDT after WiFi init
+    ESP_ERROR_CHECK(esp_task_wdt_add(NULL));
+
     const TickType_t retry_interval = pdMS_TO_TICKS(30000);  // 30 second interval
 
     while (1) {
+        // Feed the watchdog
+        ESP_ERROR_CHECK(esp_task_wdt_reset());
+
+        #ifdef TEST_WDT_HANG
+        static uint32_t startup_time = 0;
+        if (startup_time == 0) {
+            startup_time = esp_timer_get_time() / 1000;
+        }
+        if ((esp_timer_get_time() / 1000) - startup_time > 10000) {
+            ESP_LOGW(TAG, "Simulating network task hang...");
+            vTaskDelay(pdMS_TO_TICKS(5000));
+        }
+        #endif
+
         EventBits_t bits = xEventGroupGetBits(network_event_group);
         // Only attempt periodic reconnection if:
         // 1. Not connected
@@ -96,7 +117,17 @@ static void network_task(void *pvParameters)
         if (!(bits & NETWORK_EVENT_WIFI_CONNECTED) && !immediate_retry) {
             ESP_LOGI(TAG, "Attempting periodic reconnection");
             esp_wifi_connect();
-            vTaskDelay(retry_interval);  // Wait between attempts
+
+            // Break long delay into smaller chunks with WDT feeds
+            const TickType_t wdt_feed_interval = pdMS_TO_TICKS(2000); // Feed every 2s
+            TickType_t remaining = retry_interval;
+            while (remaining > 0) {
+                TickType_t delay_time = (remaining > wdt_feed_interval) ? 
+                                            wdt_feed_interval : remaining;
+                vTaskDelay(delay_time);
+                ESP_ERROR_CHECK(esp_task_wdt_reset());
+                remaining -= delay_time;
+            }
         } else {
             vTaskDelay(pdMS_TO_TICKS(1000));  // Regular status check interval
         }

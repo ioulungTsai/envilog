@@ -3,6 +3,7 @@
 #include "esp_system.h"
 #include "task_manager.h"
 #include "esp_timer.h"
+#include "esp_task_wdt.h"
 
 static const char *TAG = "task_manager";
 
@@ -21,7 +22,24 @@ static void system_monitor_task(void *pvParameters) {
 
     ESP_LOGI(TAG, "System monitor task started");
 
+    // Subscribe this task to watchdog
+    ESP_ERROR_CHECK(esp_task_wdt_add(NULL));  // NULL means current task
+
     while (1) {
+        // Reset watchdog at start of loop
+        ESP_ERROR_CHECK(esp_task_wdt_reset());
+
+        #ifdef TEST_WDT_HANG
+        static uint32_t startup_time = 0;
+        if (startup_time == 0) {
+            startup_time = esp_timer_get_time() / 1000; // Convert to ms
+        }
+        if ((esp_timer_get_time() / 1000) - startup_time > 10000) { // After 10s
+            ESP_LOGW(TAG, "Simulating task hang...");
+            vTaskDelay(pdMS_TO_TICKS(5000)); // Delay without WDT feed
+        }
+        #endif
+        
         // Monitor heap
         uint32_t free_heap = esp_get_free_heap_size();
         if (free_heap < 10000) { // Example threshold
@@ -119,6 +137,7 @@ esp_err_t get_task_status(TaskHandle_t task_handle, task_status_t *status) {
     status->healthy = (task_details.eCurrentState != eSuspended && 
                       task_details.eCurrentState != eDeleted);
     status->execution_count = task_details.ulRunTimeCounter;
+    status->wdt_subscribed = (esp_task_wdt_status(task_handle) == ESP_OK);
 
     return ESP_OK;
 }
