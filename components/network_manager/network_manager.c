@@ -8,8 +8,6 @@
 #include "esp_timer.h"
 #include "esp_task_wdt.h"
 
-#define TEST_WDT_HANG
-
 static const char *TAG = "network_manager";
 
 // Network manager state
