@@ -4,6 +4,7 @@
 #include "task_manager.h"
 #include "esp_timer.h"
 #include "esp_task_wdt.h"
+#include "system_monitor_msg.h"
 
 static const char *TAG = "task_manager";
 
@@ -18,7 +19,9 @@ static TaskHandle_t system_monitor_handle = NULL;
 // System monitor task implementation
 static void system_monitor_task(void *pvParameters) {
     TickType_t last_wake_time = xTaskGetTickCount();
-    const TickType_t check_interval = pdMS_TO_TICKS(1000); // 1 second interval
+    TickType_t check_interval = pdMS_TO_TICKS(1000); // 1 second interval
+    sys_monitor_cmd_msg_t cmd_msg;
+    sys_monitor_resp_msg_t resp_msg;
 
     ESP_LOGI(TAG, "System monitor task started");
 
@@ -28,6 +31,70 @@ static void system_monitor_task(void *pvParameters) {
     while (1) {
         // Reset watchdog at start of loop
         ESP_ERROR_CHECK(esp_task_wdt_reset());
+
+        // Check for commands (non-blocking)
+        if (xQueueReceive(system_monitor_cmd_queue, &cmd_msg, 0) == pdTRUE) {
+            switch (cmd_msg.cmd) {
+                case SYS_MONITOR_CMD_GET_HEAP: {
+                    // Prepare heap status response
+                    resp_msg.type = SYS_MONITOR_RESP_HEAP;
+                    resp_msg.status = ESP_OK;
+                    uint32_t *heap_info = malloc(2 * sizeof(uint32_t));
+                    if (heap_info != NULL) {
+                        heap_info[0] = esp_get_free_heap_size();
+                        heap_info[1] = esp_get_minimum_free_heap_size();
+                        resp_msg.data = heap_info;
+                        resp_msg.data_len = 2 * sizeof(uint32_t);
+                    } else {
+                        resp_msg.status = ESP_ERR_NO_MEM;
+                        resp_msg.data = NULL;
+                        resp_msg.data_len = 0;
+                    }
+                    xQueueSend(system_monitor_resp_queue, &resp_msg, portMAX_DELAY);
+                    break;
+                }
+                
+                case SYS_MONITOR_CMD_SET_INTERVAL: {
+                    // Update monitoring interval
+                    if (cmd_msg.data && cmd_msg.data_len == sizeof(uint32_t)) {
+                        uint32_t new_interval = *(uint32_t*)cmd_msg.data;
+                        if (new_interval >= 100 && new_interval <= 10000) {  // 100ms to 10s
+                            check_interval = pdMS_TO_TICKS(new_interval);
+                            resp_msg.status = ESP_OK;
+                        } else {
+                            resp_msg.status = ESP_ERR_INVALID_ARG;
+                        }
+                    } else {
+                        resp_msg.status = ESP_ERR_INVALID_ARG;
+                    }
+                    resp_msg.type = SYS_MONITOR_RESP_DIAG;
+                    resp_msg.data = NULL;
+                    resp_msg.data_len = 0;
+                    xQueueSend(system_monitor_resp_queue, &resp_msg, portMAX_DELAY);
+                    break;
+                }
+
+                case SYS_MONITOR_CMD_GET_TASKS:
+                case SYS_MONITOR_CMD_GET_WIFI:
+                case SYS_MONITOR_CMD_RUN_DIAG:
+                    // For now, just respond with "not implemented"
+                    resp_msg.type = SYS_MONITOR_RESP_ERROR;
+                    resp_msg.status = ESP_ERR_NOT_SUPPORTED;
+                    resp_msg.data = NULL;
+                    resp_msg.data_len = 0;
+                    xQueueSend(system_monitor_resp_queue, &resp_msg, portMAX_DELAY);
+                    break;
+    
+                default:
+                    ESP_LOGW(TAG, "Unknown command received: %d", cmd_msg.cmd);
+                    resp_msg.type = SYS_MONITOR_RESP_ERROR;
+                    resp_msg.status = ESP_ERR_INVALID_ARG;
+                    resp_msg.data = NULL;
+                    resp_msg.data_len = 0;
+                    xQueueSend(system_monitor_resp_queue, &resp_msg, portMAX_DELAY);
+                    break;
+            }
+        }
 
         #ifdef TEST_WDT_HANG
         static uint32_t startup_time = 0;

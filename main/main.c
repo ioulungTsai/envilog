@@ -13,6 +13,7 @@
 #include "envilog_config.h"
 #include "task_manager.h"
 #include "network_manager.h"
+#include "system_monitor_msg.h"
 
 static const char *TAG = "envilog";
 
@@ -58,6 +59,43 @@ static void diagnostic_timer_callback(void* arg) {
     print_diagnostics();
 }
 
+static void test_monitor_commands(void) {
+    // Test getting heap info
+    sys_monitor_cmd_msg_t cmd = {
+        .cmd = SYS_MONITOR_CMD_GET_HEAP,
+        .data = NULL,
+        .data_len = 0
+    };
+    
+    sys_monitor_resp_msg_t resp;
+    
+    ESP_LOGI(TAG, "Testing monitor commands...");
+    
+    if (system_monitor_send_command(&cmd, pdMS_TO_TICKS(1000)) == ESP_OK) {
+        if (system_monitor_get_response(&resp, pdMS_TO_TICKS(1000)) == ESP_OK) {
+            if (resp.status == ESP_OK && resp.data != NULL) {
+                uint32_t *heap_info = (uint32_t*)resp.data;
+                ESP_LOGI(TAG, "Heap info - Current: %lu, Minimum: %lu", 
+                        heap_info[0], heap_info[1]);
+                free(resp.data);  // Don't forget to free the allocated data
+            }
+        }
+    }
+    
+    // Test changing interval
+    uint32_t new_interval = 2000;  // 2 seconds
+    cmd.cmd = SYS_MONITOR_CMD_SET_INTERVAL;
+    cmd.data = &new_interval;
+    cmd.data_len = sizeof(new_interval);
+    
+    if (system_monitor_send_command(&cmd, pdMS_TO_TICKS(1000)) == ESP_OK) {
+        if (system_monitor_get_response(&resp, pdMS_TO_TICKS(1000)) == ESP_OK) {
+            ESP_LOGI(TAG, "Interval change %s", 
+                    resp.status == ESP_OK ? "successful" : "failed");
+        }
+    }
+}
+
 void app_main(void)
 {
     // Initialize logging
@@ -88,6 +126,10 @@ void app_main(void)
     // Initialize task manager
     ESP_ERROR_CHECK(task_manager_init());
     ESP_LOGI(TAG, "Task manager initialized");
+
+    // Initialize system monitor queues
+    ESP_ERROR_CHECK(system_monitor_queue_init());
+    ESP_LOGI(TAG, "System monitor queues initialized");
 
     // Create system monitor task
     ESP_ERROR_CHECK(create_system_monitor_task());
@@ -120,6 +162,8 @@ void app_main(void)
 
     ESP_LOGI(TAG, "System initialized successfully");
     print_diagnostics();
+
+    test_monitor_commands();
 
     // Main loop - can be used for future main task operations
     while (1) {
