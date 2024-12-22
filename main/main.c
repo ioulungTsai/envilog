@@ -14,6 +14,7 @@
 #include "task_manager.h"
 #include "network_manager.h"
 #include "system_monitor_msg.h"
+#include "http_server.h"
 
 static const char *TAG = "envilog";
 
@@ -139,6 +140,20 @@ void app_main(void)
     ESP_ERROR_CHECK(network_manager_init());
     ESP_ERROR_CHECK(network_manager_start());
     ESP_LOGI(TAG, "Network manager started");
+
+    // Initialize HTTP server
+    http_server_config_t http_config = {
+        .port = 80,
+        .max_clients = 4,
+        .enable_cors = true
+    };
+
+    ESP_LOGI(TAG, "Starting HTTP server...");
+    esp_err_t http_ret = http_server_init(&http_config);  // Changed from ret to http_ret
+    if (http_ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start HTTP server: %s", esp_err_to_name(http_ret));
+        return;
+    }
 
     // Create periodic timer for diagnostics
     const esp_timer_create_args_t timer_args = {
