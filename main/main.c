@@ -15,6 +15,7 @@
 #include "network_manager.h"
 #include "system_monitor_msg.h"
 #include "http_server.h"
+#include "esp_spiffs.h"
 
 static const char *TAG = "envilog";
 
@@ -32,6 +33,14 @@ static void print_diagnostics(void) {
         if (network_manager_get_rssi(&rssi) == ESP_OK) {
             ESP_LOGI(TAG, "- WiFi RSSI: %d dBm", rssi);
         }
+    }
+
+    // Add SPIFFS diagnostics
+    size_t total = 0, used = 0;
+    if (esp_spiffs_info(NULL, &total, &used) == ESP_OK) {
+        ESP_LOGI(TAG, "- SPIFFS: %d KB used of %d KB", used/1024, total/1024);
+    } else {
+        ESP_LOGW(TAG, "- SPIFFS: Failed to get partition information");
     }
 
     // Add task manager diagnostics
@@ -97,6 +106,40 @@ static void test_monitor_commands(void) {
     }
 }
 
+static esp_err_t init_spiffs(void)
+{
+    ESP_LOGI(TAG, "Initializing SPIFFS");
+
+    esp_vfs_spiffs_conf_t conf = {
+        .base_path = "/www",
+        .partition_label = NULL,  // Use default partition
+        .max_files = 5,          // Maximum number of files that can be open at the same time
+        .format_if_mount_failed = true
+    };
+
+    esp_err_t ret = esp_vfs_spiffs_register(&conf);
+    if (ret != ESP_OK) {
+        if (ret == ESP_FAIL) {
+            ESP_LOGE(TAG, "Failed to mount or format filesystem");
+        } else if (ret == ESP_ERR_NOT_FOUND) {
+            ESP_LOGE(TAG, "Failed to find SPIFFS partition");
+        } else {
+            ESP_LOGE(TAG, "Failed to initialize SPIFFS (%s)", esp_err_to_name(ret));
+        }
+        return ret;
+    }
+
+    size_t total = 0, used = 0;
+    ret = esp_spiffs_info(NULL, &total, &used);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to get SPIFFS partition information (%s)", esp_err_to_name(ret));
+        return ret;
+    }
+
+    ESP_LOGI(TAG, "Partition size: total: %d, used: %d", total, used);
+    return ESP_OK;
+}
+
 void app_main(void)
 {
     // Initialize logging
@@ -111,6 +154,10 @@ void app_main(void)
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
+
+    // Initialize SPIFFS - Add here
+    ESP_ERROR_CHECK(init_spiffs());
+    ESP_LOGI(TAG, "SPIFFS initialized successfully");
 
     // Initialize TWDT here
     esp_task_wdt_config_t twdt_config = {
