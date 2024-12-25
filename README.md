@@ -7,7 +7,7 @@ EnviLog is an embedded system project based on ESP32-S3 for environmental monito
 
 ## Hardware
 - Core Board: ESP32-S3-DevKitC-1-N32R8V
-- Display: LCD1602 (Status Display)
+- Display: LCD1602 (Status Display) - Future Integration
 - Sensors (Future Integration):
   - DHT11: Temperature/Humidity
   - Photoresistors: Light/Motion
@@ -16,29 +16,44 @@ EnviLog is an embedded system project based on ESP32-S3 for environmental monito
 ## Project Structure
 ```
 envilog/
+├── CMakeLists.txt           # Project CMake configuration
+├── README.md               
 ├── components/
-│   ├── envilog_config/        # Project configurations
+│   ├── envilog_config/      # Project configurations
+│   │   ├── CMakeLists.txt
 │   │   └── include/
 │   │       └── envilog_config.h
-│   ├── network_manager/       # WiFi and network handling
+│   ├── http_server/         # HTTP server implementation
+│   │   ├── CMakeLists.txt
+│   │   ├── http_server.c
 │   │   └── include/
-│   │       └── network_manager.h
-│   └── task_manager/         # FreeRTOS task management
-│       └── include/
-│           └── task_manager.h
+│   │       └── http_server.h
+│   ├── network_manager/     # WiFi and network handling
+│   │   ├── CMakeLists.txt
+│   │   ├── include/
+│   │   │   └── network_manager.h
+│   │   └── network_manager.c
+│   └── task_manager/        # FreeRTOS task management
+│       ├── CMakeLists.txt
+│       ├── include/
+│       │   ├── system_monitor_msg.h
+│       │   └── task_manager.h
+│       ├── system_monitor_msg.c
+│       └── task_manager.c
+├── envilog_partitions.csv   # Custom partition table
 ├── main/
 │   ├── CMakeLists.txt
-│   ├── Kconfig.projbuild     # Project configuration options
-│   └── main.c               # Application entry point
-└── CMakeLists.txt           # Project CMake configuration
+│   ├── Kconfig.projbuild    # Project configuration options
+│   ├── include/
+│   └── main.c              # Application entry point
+├── sdkconfig                # Project configuration
+└── www/                    # Frontend web files
+    ├── css/
+    │   └── styles.css
+    ├── index.html
+    └── js/
+        └── main.js
 ```
-
-Future additions:
-- Display driver component
-- Sensor driver components
-- Web interface
-- MQTT client
-- Data management
 
 ## Development Environment
 - Framework: ESP-IDF v5.0
@@ -54,7 +69,7 @@ Future additions:
 ## Build Instructions
 ```bash
 # Configure project
-idf.py set-target esp32s3
+idf.py menuconfig
 
 # Build project
 idf.py build
@@ -63,11 +78,22 @@ idf.py build
 idf.py -p PORT flash
 
 # Monitor output
-idf.py -p PORT monitor
-
-# Clean build files
-idf.py clean
+idf.py monitor
 ```
+
+## Features
+- System Monitoring
+  * Real-time heap usage
+  * System uptime
+  * Task status
+- Network Connectivity
+  * WiFi station mode
+  * Connection management
+  * RSSI monitoring
+- Web Interface
+  * Dashboard for system status
+  * Real-time updates
+  * RESTful API endpoints
 
 ## Project Status
 - [x] Development environment setup
@@ -81,29 +107,28 @@ idf.py clean
   - WiFi station mode
   - Connection management
   - Error recovery
-- [x] Task Management (Partial)
+- [x] Task Management
   - System monitor task
   - Network task
   - Event groups
   - Task priorities
+  - Watchdog implementation
+- [x] HTTP Server
+  - REST API endpoints
+  - Static file serving
+  - Web dashboard
 - [ ] Display system integration
 - [ ] Sensor integration
-- [ ] Web interface
-- [ ] MQTT integration
 
 ## Version
 Current version: v0.2.0
+Features:
 - Network stack implementation
 - Task management framework
 - System monitoring
 - Error handling framework
-
-## Contributing
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a new Pull Request
+- Web interface with dashboard
+- Static file serving
 
 ## License
 This project is licensed under the MIT License - see the LICENSE file for details
