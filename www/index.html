@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EnviLog Dashboard</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <div class="dashboard">
+        <h1>EnviLog Dashboard</h1>
+        <div class="status-grid">
+            <!-- System Info Card -->
+            <div class="card" id="system-info">
+                <h2>System Status</h2>
+                <div class="status-item">
+                    <span>Free Heap:</span>
+                    <span id="heap-size">Loading...</span>
+                </div>
+                <div class="status-item">
+                    <span>Uptime:</span>
+                    <span id="uptime">Loading...</span>
+                </div>
+            </div>
+            <!-- Network Info Card -->
+            <div class="card" id="network-info">
+                <h2>Network Status</h2>
+                <div class="status-item">
+                    <span>WiFi Status:</span>
+                    <span id="wifi-status">Loading...</span>
+                </div>
+                <div class="status-item">
+                    <span>RSSI:</span>
+                    <span id="rssi">Loading...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="/js/main.js"></script>
+</body>
+</html>

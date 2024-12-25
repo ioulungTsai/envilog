@@ -10,4 +10,5 @@ idf_component_register(
         "json"
         "network_manager"
         "envilog_config"
+        "vfs"
 )

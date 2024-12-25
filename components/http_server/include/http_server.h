@@ -2,10 +2,14 @@
 
 #include "esp_err.h"
 #include "esp_http_server.h"
-#include "esp_timer.h"
-#include "esp_chip_info.h"
-#include "esp_cpu.h"
-#include "network_manager.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// File handling constants
+#define FILE_PATH_MAX (ESP_VFS_PATH_MAX + CONFIG_SPIFFS_OBJ_NAME_LEN)
+#define HTTP_CHUNK_SIZE (1024)
 
 /**
  * @brief HTTP server configuration
@@ -30,3 +34,7 @@ esp_err_t http_server_init(const http_server_config_t *config);
  * @return esp_err_t ESP_OK on success
  */
 esp_err_t http_server_stop(void);
+
+#ifdef __cplusplus
+}
+#endif
