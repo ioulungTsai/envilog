@@ -16,6 +16,7 @@
 #include "system_monitor_msg.h"
 #include "http_server.h"
 #include "esp_spiffs.h"
+#include "envilog_mqtt.h"
 
 static const char *TAG = "envilog";
 
@@ -187,6 +188,11 @@ void app_main(void)
     ESP_ERROR_CHECK(network_manager_init());
     ESP_ERROR_CHECK(network_manager_start());
     ESP_LOGI(TAG, "Network manager started");
+
+    // Initialize and start MQTT client
+    ESP_ERROR_CHECK(envilog_mqtt_init());
+    ESP_ERROR_CHECK(envilog_mqtt_start());
+    ESP_LOGI(TAG, "MQTT client started");
 
     // Initialize HTTP server
     http_server_config_t http_config = {

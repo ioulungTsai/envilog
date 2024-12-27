@@ -24,5 +24,24 @@ menu "EnviLog Configuration"
         default 10000
         help
             Timeout in milliseconds for WiFi connection attempts.
+    
+    config ENVILOG_MQTT_BROKER_URL
+        string "MQTT Broker URL"
+        default "mqtt://mqtt.eclipseprojects.io"
+        help
+            URL of MQTT broker to connect to.
+
+    config ENVILOG_MQTT_CLIENT_ID
+        string "MQTT Client ID"
+        default "envilog_device"
+        help
+            Client identifier for MQTT connection.
+            
+    config ENVILOG_MQTT_KEEPALIVE
+        int "MQTT Keep-alive timeout (seconds)"
+        range 15 600
+        default 120
+        help
+            Keep-alive timeout for MQTT connection.
 
 endmenu
