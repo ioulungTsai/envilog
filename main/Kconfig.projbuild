@@ -44,4 +44,24 @@ menu "EnviLog Configuration"
         help
             Keep-alive timeout for MQTT connection.
 
+    config ENVILOG_MQTT_OUTBOX_SIZE
+        int "MQTT Outbox Size (KB)"
+        default 32
+        range 16 256
+        help
+            Size limit for MQTT outbox in kilobytes.
+            Messages are stored here during disconnection.
+
+    config ENVILOG_MQTT_TIMEOUT_MS
+        int "MQTT Network Timeout (ms)"
+        default 5000
+        help
+            Timeout for MQTT network operations in milliseconds.
+
+    config ENVILOG_MQTT_RETRY_TIMEOUT_MS
+        int "MQTT Retry Timeout (ms)"
+        default 3000
+        help
+            Time between message retry attempts in milliseconds.
+
 endmenu

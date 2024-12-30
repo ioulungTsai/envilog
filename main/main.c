@@ -141,6 +141,31 @@ static esp_err_t init_spiffs(void)
     return ESP_OK;
 }
 
+static void test_mqtt_queue(void)
+{
+    ESP_LOGI(TAG, "Starting MQTT queue test...");
+
+    // Test status messages (QoS 0)
+    for (int i = 0; i < 5; i++) {
+        char status_msg[64];
+        snprintf(status_msg, sizeof(status_msg), "Status update %d", i);
+        ESP_LOGI(TAG, "Publishing status message %d", i);
+        envilog_mqtt_publish_status(status_msg, 0);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+
+    // Test diagnostic messages (QoS 1)
+    for (int i = 0; i < 5; i++) {
+        char diag_msg[64];
+        snprintf(diag_msg, sizeof(diag_msg), "Diagnostic data %d", i);
+        ESP_LOGI(TAG, "Publishing diagnostic message %d", i);
+        envilog_mqtt_publish_diagnostic("test", diag_msg, 0);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+
+    ESP_LOGI(TAG, "MQTT queue test completed");
+}
+
 void app_main(void)
 {
     // Initialize logging
@@ -193,6 +218,12 @@ void app_main(void)
     ESP_ERROR_CHECK(envilog_mqtt_init());
     ESP_ERROR_CHECK(envilog_mqtt_start());
     ESP_LOGI(TAG, "MQTT client started");
+
+    // Wait a bit for MQTT to connect
+    vTaskDelay(pdMS_TO_TICKS(2000));
+
+    // Run MQTT queue test
+    test_mqtt_queue();
 
     // Initialize HTTP server
     http_server_config_t http_config = {
