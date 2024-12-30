@@ -23,6 +23,11 @@ envilog/
 │   │   ├── CMakeLists.txt
 │   │   └── include/
 │   │       └── envilog_config.h
+│   ├── envilog_mqtt/        # MQTT client implementation
+│   │   ├── CMakeLists.txt
+│   │   ├── envilog_mqtt.c
+│   │   └── include/
+│   │       └── envilog_mqtt.h
 │   ├── http_server/         # HTTP server implementation
 │   │   ├── CMakeLists.txt
 │   │   ├── http_server.c
@@ -47,6 +52,7 @@ envilog/
 │   ├── include/
 │   └── main.c              # Application entry point
 ├── sdkconfig                # Project configuration
+├── sdkconfig.old           # Backup of previous configuration
 └── www/                    # Frontend web files
     ├── css/
     │   └── styles.css
@@ -90,6 +96,11 @@ idf.py monitor
   * WiFi station mode
   * Connection management
   * RSSI monitoring
+- MQTT Integration
+  * Broker connectivity
+  * QoS-based message handling
+  * Message queueing
+  * Event monitoring
 - Web Interface
   * Dashboard for system status
   * Real-time updates
@@ -117,8 +128,28 @@ idf.py monitor
   - REST API endpoints
   - Static file serving
   - Web dashboard
+  - Error handling
+  - Resource cleanup
+- [x] Web Interface
+   - Dashboard design and implementation
+   - System status display
+   - Network status display
+   - Real-time updates
+- [x] MQTT Integration
+   - Broker connectivity
+   - Topic structure
+   - Message queuing
+   - Event handling
+   - Status monitoring
+- [ ] System Integration
+   - Configuration storage
+   - OTA update system
+   - System diagnostics expansion
+   - Additional logging features
+   - Enhanced error reporting
 - [ ] Display system integration
 - [ ] Sensor integration
+
 
 ## Version
 Current version: v0.2.0
@@ -129,9 +160,6 @@ Features:
 - Error handling framework
 - Web interface with dashboard
 - Static file serving
-
-## License
-This project is licensed under the MIT License - see the LICENSE file for details
 
 ## Acknowledgments
 - ESP-IDF framework and documentation
