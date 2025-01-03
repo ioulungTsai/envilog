@@ -17,6 +17,7 @@
 #include "http_server.h"
 #include "esp_spiffs.h"
 #include "envilog_mqtt.h"
+#include "system_manager.h"
 
 static const char *TAG = "envilog";
 
@@ -166,6 +167,35 @@ static void test_mqtt_queue(void)
     ESP_LOGI(TAG, "MQTT queue test completed");
 }
 
+static void test_config_operations(void)
+{
+    ESP_LOGI(TAG, "Testing configuration operations...");
+    
+    // Test network configuration
+    network_config_t net_cfg;
+    esp_err_t ret = system_manager_load_network_config(&net_cfg);
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "Current WiFi SSID: %s", net_cfg.wifi_ssid);
+        ESP_LOGI(TAG, "Max retry: %u", net_cfg.max_retry);
+    }
+
+    // Test MQTT configuration
+    mqtt_config_t mqtt_cfg;
+    ret = system_manager_load_mqtt_config(&mqtt_cfg);
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "MQTT Broker URL: %s", mqtt_cfg.broker_url);
+        ESP_LOGI(TAG, "MQTT Client ID: %s", mqtt_cfg.client_id);
+    }
+
+    // Test system configuration
+    system_config_t sys_cfg;
+    ret = system_manager_load_system_config(&sys_cfg);
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "Task WDT timeout: %lu ms", sys_cfg.task_wdt_timeout_ms);
+        ESP_LOGI(TAG, "Diagnostic interval: %lu ms", sys_cfg.diag_check_interval_ms);
+    }
+}
+
 void app_main(void)
 {
     // Initialize logging
@@ -180,6 +210,13 @@ void app_main(void)
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
+
+    // Initialize system manager
+    ESP_ERROR_CHECK(system_manager_init());
+    ESP_LOGI(TAG, "System manager initialized");
+
+    // Run system manager test
+    test_config_operations();
 
     // Initialize SPIFFS - Add here
     ESP_ERROR_CHECK(init_spiffs());

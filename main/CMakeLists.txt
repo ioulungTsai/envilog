@@ -12,4 +12,5 @@ idf_component_register(
                   "network_manager"
                   "http_server"
                   "envilog_mqtt"
+                  "system_manager"
 )
