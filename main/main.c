@@ -167,6 +167,42 @@ static void test_mqtt_queue(void)
     ESP_LOGI(TAG, "MQTT queue test completed");
 }
 
+// Add near other test functions
+static void test_network_config(void)
+{
+    ESP_LOGI(TAG, "Starting network configuration tests...");
+
+    // Test A: First Boot - Already handled by network_manager logs
+    ESP_LOGI(TAG, "Test A: First boot configuration");
+    vTaskDelay(pdMS_TO_TICKS(5000));  // Wait for initial connection
+
+    // Test B: Configuration Update
+    ESP_LOGI(TAG, "Test B: Configuration update");
+    network_config_t new_config = {
+        .wifi_ssid = "TestSSID",
+        .wifi_password = "TestPassword",
+        .max_retry = 3,
+        .conn_timeout_ms = 10000
+    };
+    
+    esp_err_t ret = system_manager_save_network_config(&new_config);
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "New configuration saved");
+        ret = network_manager_update_config();
+        if (ret == ESP_OK) {
+            ESP_LOGI(TAG, "Network configuration updated");
+        } else {
+            ESP_LOGE(TAG, "Failed to update network configuration: %s", esp_err_to_name(ret));
+        }
+    } else {
+        ESP_LOGE(TAG, "Failed to save new configuration: %s", esp_err_to_name(ret));
+    }
+
+    // Test C: Settings Persistence
+    ESP_LOGI(TAG, "Test C: Please power cycle the device");
+    ESP_LOGI(TAG, "After restart, check if settings persist");
+}
+
 static void test_config_operations(void)
 {
     ESP_LOGI(TAG, "Testing configuration operations...");
@@ -250,6 +286,9 @@ void app_main(void)
     ESP_ERROR_CHECK(network_manager_init());
     ESP_ERROR_CHECK(network_manager_start());
     ESP_LOGI(TAG, "Network manager started");
+
+    // Run network configuration test
+    test_network_config();
 
     // Initialize and start MQTT client
     ESP_ERROR_CHECK(envilog_mqtt_init());

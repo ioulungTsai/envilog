@@ -45,3 +45,11 @@ esp_err_t network_manager_get_rssi(int8_t *rssi);
  * @return true if connected
  */
 bool network_manager_is_connected(void);
+
+/**
+ * @brief Update network configuration
+ * 
+ * @param new_config Pointer to new network configuration
+ * @return esp_err_t ESP_OK on success
+ */
+esp_err_t network_manager_update_config(void);

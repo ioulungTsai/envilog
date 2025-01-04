@@ -7,6 +7,7 @@
 #include "envilog_config.h"
 #include "esp_timer.h"
 #include "esp_task_wdt.h"
+#include "system_manager.h" 
 
 static const char *TAG = "network_manager";
 
@@ -24,6 +25,14 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
 esp_err_t network_manager_init(void)
 {
     ESP_LOGI(TAG, "Initializing network manager");
+
+    // Load network configuration
+    network_config_t net_cfg;
+    esp_err_t ret = system_manager_load_network_config(&net_cfg);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to load network config");
+        return ret;
+    }
 
     // Create event group
     network_event_group = xEventGroupCreate();
@@ -72,11 +81,13 @@ static void network_task(void *pvParameters)
 {
     ESP_LOGI(TAG, "Network task starting");
 
-    // Configure WiFi station with credentials
+    // Load network configuration
+    network_config_t net_cfg;
+    ESP_ERROR_CHECK(system_manager_load_network_config(&net_cfg));
+
+   // Configure WiFi station with credentials from system_manager
     wifi_config_t wifi_config = {
         .sta = {
-            .ssid = ENVILOG_WIFI_SSID,
-            .password = ENVILOG_WIFI_PASS,
             .threshold.authmode = WIFI_AUTH_WPA2_PSK,
             .pmf_cfg = {
                 .capable = true,
@@ -84,6 +95,12 @@ static void network_task(void *pvParameters)
             },
         },
     };
+    
+    // Copy credentials
+    strlcpy((char*)wifi_config.sta.ssid, net_cfg.wifi_ssid, 
+            sizeof(wifi_config.sta.ssid));
+    strlcpy((char*)wifi_config.sta.password, net_cfg.wifi_password, 
+            sizeof(wifi_config.sta.password));
 
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
@@ -189,4 +206,45 @@ esp_err_t network_manager_get_rssi(int8_t *rssi)
 bool network_manager_is_connected(void)
 {
     return (xEventGroupGetBits(network_event_group) & NETWORK_EVENT_WIFI_CONNECTED) != 0;
+}
+
+// Handle configuration updates
+esp_err_t network_manager_update_config(void)
+{
+    network_config_t net_cfg;
+    esp_err_t ret = system_manager_load_network_config(&net_cfg);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to load new network config");
+        return ret;
+    }
+
+    wifi_config_t wifi_config = {
+        .sta = {
+            .threshold.authmode = WIFI_AUTH_WPA2_PSK,
+            .pmf_cfg = {
+                .capable = true,
+                .required = false
+            },
+        },
+    };
+
+    strlcpy((char*)wifi_config.sta.ssid, net_cfg.wifi_ssid,
+            sizeof(wifi_config.sta.ssid));
+    strlcpy((char*)wifi_config.sta.password, net_cfg.wifi_password,
+            sizeof(wifi_config.sta.password));
+
+    // Apply new configuration
+    ret = esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to set new WiFi config");
+        return ret;
+    }
+
+    // Reconnect if currently connected
+    if (network_manager_is_connected()) {
+        esp_wifi_disconnect();
+        esp_wifi_connect();
+    }
+
+    return ESP_OK;
 }

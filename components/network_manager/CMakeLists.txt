@@ -10,4 +10,5 @@ idf_component_register(
              "task_manager"
              "envilog_config"
              "esp_system"
+             "system_manager"
 )
