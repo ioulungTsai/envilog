@@ -6,4 +6,5 @@ idf_component_register(
              "network_manager"
              "task_manager"
              "envilog_config"
+             "system_manager"
 )

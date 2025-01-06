@@ -167,7 +167,7 @@ static void test_mqtt_queue(void)
     ESP_LOGI(TAG, "MQTT queue test completed");
 }
 
-// Add near other test functions
+// Network configuration test
 static void test_network_config(void)
 {
     ESP_LOGI(TAG, "Starting network configuration tests...");
@@ -203,6 +203,43 @@ static void test_network_config(void)
     ESP_LOGI(TAG, "After restart, check if settings persist");
 }
 
+// MQTT configuration test
+static void test_mqtt_config(void)
+{
+   ESP_LOGI(TAG, "Starting MQTT configuration tests...");
+
+   // Test D: First Boot - Check initial MQTT settings
+   ESP_LOGI(TAG, "Test D: First boot MQTT configuration");
+   vTaskDelay(pdMS_TO_TICKS(5000));  // Wait for initial connection
+
+   // Test E: MQTT Configuration Update
+   ESP_LOGI(TAG, "Test E: MQTT configuration update");
+   mqtt_config_t new_config = {
+       .broker_url = "mqtt://test.mosquitto.org",
+       .client_id = "test_envilog",
+       .keepalive = 60,
+       .timeout_ms = 2000,
+       .retry_timeout_ms = 1000
+   };
+   
+   esp_err_t ret = system_manager_save_mqtt_config(&new_config);
+   if (ret == ESP_OK) {
+       ESP_LOGI(TAG, "New MQTT configuration saved");
+       ret = envilog_mqtt_update_config();
+       if (ret == ESP_OK) {
+           ESP_LOGI(TAG, "MQTT configuration updated");
+       } else {
+           ESP_LOGE(TAG, "Failed to update MQTT configuration: %s", esp_err_to_name(ret));
+       }
+   } else {
+       ESP_LOGE(TAG, "Failed to save new MQTT configuration: %s", esp_err_to_name(ret));
+   }
+
+   // Test F: MQTT Settings Persistence
+   ESP_LOGI(TAG, "Test F: Please power cycle the device");
+   ESP_LOGI(TAG, "After restart, check if MQTT settings persist");
+}
+
 static void test_config_operations(void)
 {
     ESP_LOGI(TAG, "Testing configuration operations...");
@@ -231,7 +268,7 @@ static void test_config_operations(void)
         ESP_LOGI(TAG, "Diagnostic interval: %lu ms", sys_cfg.diag_check_interval_ms);
     }
 }
-
+        
 void app_main(void)
 {
     // Initialize logging
@@ -287,13 +324,16 @@ void app_main(void)
     ESP_ERROR_CHECK(network_manager_start());
     ESP_LOGI(TAG, "Network manager started");
 
-    // Run network configuration test
+    // Run Network configuration test
     test_network_config();
 
     // Initialize and start MQTT client
     ESP_ERROR_CHECK(envilog_mqtt_init());
     ESP_ERROR_CHECK(envilog_mqtt_start());
     ESP_LOGI(TAG, "MQTT client started");
+    
+    // Run MQTT configuration test
+    test_mqtt_config();
 
     // Wait a bit for MQTT to connect
     vTaskDelay(pdMS_TO_TICKS(2000));

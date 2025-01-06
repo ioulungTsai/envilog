@@ -5,6 +5,7 @@
 #include "envilog_mqtt.h"
 #include "network_manager.h"
 #include "envilog_config.h"
+#include "system_manager.h"
 
 static const char *TAG = "envilog_mqtt";
 
@@ -63,20 +64,27 @@ esp_err_t envilog_mqtt_init(void)
 {
     ESP_LOGI(TAG, "Initializing MQTT client");
 
+    mqtt_config_t mqtt_cfg;
+    esp_err_t ret = system_manager_load_mqtt_config(&mqtt_cfg);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to load MQTT config");
+        return ret;
+    }
+
     mqtt_event_group = xEventGroupCreate();
     if (mqtt_event_group == NULL) {
         ESP_LOGE(TAG, "Failed to create event group");
         return ESP_FAIL;
     }
 
-    esp_mqtt_client_config_t mqtt_cfg = {
-        .broker.address.uri = ENVILOG_MQTT_BROKER_URL,
-        .credentials.client_id = ENVILOG_MQTT_CLIENT_ID,
-        .session.keepalive = ENVILOG_MQTT_KEEPALIVE,
+    esp_mqtt_client_config_t esp_mqtt_cfg = {
+        .broker.address.uri = mqtt_cfg.broker_url,
+        .credentials.client_id = mqtt_cfg.client_id,
+        .session.keepalive = mqtt_cfg.keepalive,
         
         // Timeout settings
-        .network.timeout_ms = ENVILOG_MQTT_TIMEOUT_MS,
-        .network.reconnect_timeout_ms = ENVILOG_MQTT_RETRY_TIMEOUT_MS,
+        .network.timeout_ms = mqtt_cfg.timeout_ms,
+        .network.reconnect_timeout_ms = mqtt_cfg.retry_timeout_ms,
 
         // Outbox configuration
         .outbox.limit = ENVILOG_MQTT_OUTBOX_SIZE * 1024,
@@ -93,7 +101,7 @@ esp_err_t envilog_mqtt_init(void)
         }
     };
 
-    mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
+    mqtt_client = esp_mqtt_client_init(&esp_mqtt_cfg);
     if (mqtt_client == NULL) {
         ESP_LOGE(TAG, "Failed to initialize MQTT client");
         return ESP_FAIL;
@@ -166,4 +174,45 @@ esp_err_t envilog_mqtt_publish_diagnostic(const char *type, const char *data, si
 
     ESP_LOGI(TAG, "Published diagnostic data to %s, msg_id=%d", full_topic, msg_id);
     return ESP_OK;
+}
+
+esp_err_t envilog_mqtt_update_config(void)
+{
+    mqtt_config_t mqtt_cfg;
+    esp_err_t ret = system_manager_load_mqtt_config(&mqtt_cfg);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to load new MQTT config");
+        return ret;
+    }
+
+    // Need to stop, reinit and restart client
+    esp_mqtt_client_stop(mqtt_client);
+    esp_mqtt_client_destroy(mqtt_client);
+
+    esp_mqtt_client_config_t esp_mqtt_cfg = {
+        .broker.address.uri = mqtt_cfg.broker_url,
+        .credentials.client_id = mqtt_cfg.client_id,
+        .session.keepalive = mqtt_cfg.keepalive,
+        .network.timeout_ms = mqtt_cfg.timeout_ms,
+        .network.reconnect_timeout_ms = mqtt_cfg.retry_timeout_ms,
+        .outbox.limit = ENVILOG_MQTT_OUTBOX_SIZE * 1024,
+        .session.disable_clean_session = false,
+        .session.last_will = {
+            .topic = "/envilog/status",
+            .msg = "offline",
+            .qos = 1,
+            .retain = 1
+        }
+    };
+
+    mqtt_client = esp_mqtt_client_init(&esp_mqtt_cfg);
+    if (mqtt_client == NULL) {
+        ESP_LOGE(TAG, "Failed to initialize MQTT client");
+        return ESP_FAIL;
+    }
+
+    ESP_ERROR_CHECK(esp_mqtt_client_register_event(mqtt_client, ESP_EVENT_ANY_ID,
+                                                 mqtt_event_handler, NULL));
+
+    return esp_mqtt_client_start(mqtt_client);
 }

@@ -61,3 +61,10 @@ esp_err_t envilog_mqtt_publish_status(const char *data, size_t len);
  * @return esp_err_t ESP_OK on success
  */
 esp_err_t envilog_mqtt_publish_diagnostic(const char *type, const char *data, size_t len);
+
+/**
+ * @brief Update MQTT configuration
+ * 
+ * @return esp_err_t ESP_OK on success
+ */
+esp_err_t envilog_mqtt_update_config(void);
