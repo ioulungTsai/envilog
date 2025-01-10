@@ -325,7 +325,7 @@ void app_main(void)
     ESP_LOGI(TAG, "Network manager started");
 
     // Run Network configuration test
-    test_network_config();
+    // test_network_config();
 
     // Initialize and start MQTT client
     ESP_ERROR_CHECK(envilog_mqtt_init());
@@ -333,7 +333,7 @@ void app_main(void)
     ESP_LOGI(TAG, "MQTT client started");
     
     // Run MQTT configuration test
-    test_mqtt_config();
+    // test_mqtt_config();
 
     // Wait a bit for MQTT to connect
     vTaskDelay(pdMS_TO_TICKS(2000));
