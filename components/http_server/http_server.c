@@ -9,17 +9,22 @@
 #include "esp_netif.h"
 #include "http_server.h"
 #include "network_manager.h"
+#include "system_manager.h"
 #include <sys/stat.h>
 
 static const char *TAG = "http_server";
 static httpd_handle_t server = NULL;
 
-// Function declarations for URI handlers
+/* Function Declarations */
 static esp_err_t system_info_handler(httpd_req_t *req);
 static esp_err_t network_info_handler(httpd_req_t *req);
 static esp_err_t static_file_handler(httpd_req_t *req);
+static esp_err_t get_network_config_handler(httpd_req_t *req);
+static esp_err_t get_mqtt_config_handler(httpd_req_t *req);
+static esp_err_t update_network_config_handler(httpd_req_t *req);
+static esp_err_t update_mqtt_config_handler(httpd_req_t *req);
 
-// URI handlers configuration
+/* URI Handler Configuration */
 static const httpd_uri_t uri_handlers[] = {
     {
         .uri = "/api/v1/system",
@@ -34,14 +39,38 @@ static const httpd_uri_t uri_handlers[] = {
         .user_ctx = NULL
     },
     {
-        .uri = "/*",  // Catch-all handler for static files
+        .uri = "/api/v1/config/network",
+        .method = HTTP_GET,
+        .handler = get_network_config_handler,
+        .user_ctx = NULL
+    },
+    {
+        .uri = "/api/v1/config/network",
+        .method = HTTP_POST,
+        .handler = update_network_config_handler,
+        .user_ctx = NULL
+    },
+    {
+        .uri = "/api/v1/config/mqtt",
+        .method = HTTP_GET,
+        .handler = get_mqtt_config_handler,
+        .user_ctx = NULL
+    },
+    {
+        .uri = "/api/v1/config/mqtt",
+        .method = HTTP_POST,
+        .handler = update_mqtt_config_handler,
+        .user_ctx = NULL
+    },
+    {
+        .uri = "/*",
         .method = HTTP_GET,
         .handler = static_file_handler,
         .user_ctx = NULL
     }
 };
 
-// System info handler implementation
+/* Existing Handler Implementations */
 static esp_err_t system_info_handler(httpd_req_t *req)
 {
     cJSON *root = cJSON_CreateObject();
@@ -50,19 +79,14 @@ static esp_err_t system_info_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    cJSON_AddNumberToObject(root, "free_heap", esp_get_free_heap_size());
-    cJSON_AddNumberToObject(root, "min_heap", esp_get_minimum_free_heap_size());
-    cJSON_AddNumberToObject(root, "uptime_ms", esp_timer_get_time() / 1000);
-
-    esp_chip_info_t chip_info;
-    esp_chip_info(&chip_info);
-    
-    cJSON *chip = cJSON_AddObjectToObject(root, "chip");
-    if (chip) {
-        cJSON_AddNumberToObject(chip, "cores", chip_info.cores);
-        cJSON_AddNumberToObject(chip, "model", chip_info.model);
-        cJSON_AddNumberToObject(chip, "revision", chip_info.revision);
-        cJSON_AddStringToObject(chip, "features", esp_get_idf_version());
+    system_diag_data_t diag_data;
+    esp_err_t ret = system_manager_get_diagnostics(&diag_data);
+    if (ret == ESP_OK) {
+        cJSON_AddNumberToObject(root, "free_heap", diag_data.free_heap);
+        cJSON_AddNumberToObject(root, "min_free_heap", diag_data.min_free_heap);
+        cJSON_AddNumberToObject(root, "uptime_ms", diag_data.uptime_seconds * 1000);
+        cJSON_AddNumberToObject(root, "cpu_usage", diag_data.cpu_usage);
+        cJSON_AddNumberToObject(root, "internal_temp", diag_data.internal_temp);
     }
 
     char *json_str = cJSON_PrintUnformatted(root);
@@ -80,7 +104,6 @@ static esp_err_t system_info_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-// Network info handler implementation
 static esp_err_t network_info_handler(httpd_req_t *req)
 {
     cJSON *root = cJSON_CreateObject();
@@ -99,7 +122,8 @@ static esp_err_t network_info_handler(httpd_req_t *req)
         }
     }
 
-    cJSON_AddBoolToObject(root, "connected", network_manager_is_connected());
+    cJSON_AddStringToObject(root, "status", 
+        network_manager_is_connected() ? "Connected" : "Disconnected");
     
     int8_t rssi;
     if (network_manager_get_rssi(&rssi) == ESP_OK) {
@@ -121,11 +145,190 @@ static esp_err_t network_info_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-// Static file handler
+/* Configuration GET Handlers */
+static esp_err_t get_network_config_handler(httpd_req_t *req)
+{
+    network_config_t config;
+    esp_err_t ret = system_manager_load_network_config(&config);
+    if (ret != ESP_OK) {
+        httpd_resp_send_500(req);
+        return ESP_FAIL;
+    }
+
+    cJSON *root = cJSON_CreateObject();
+    if (!root) {
+        httpd_resp_send_500(req);
+        return ESP_FAIL;
+    }
+
+    // Only expose SSID
+    cJSON_AddStringToObject(root, "wifi_ssid", config.wifi_ssid);
+
+    char *json_str = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+
+    if (!json_str) {
+        httpd_resp_send_500(req);
+        return ESP_FAIL;
+    }
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, json_str, strlen(json_str));
+    free(json_str);
+
+    return ESP_OK;
+}
+
+static esp_err_t get_mqtt_config_handler(httpd_req_t *req)
+{
+    mqtt_config_t config;
+    esp_err_t ret = system_manager_load_mqtt_config(&config);
+    if (ret != ESP_OK) {
+        httpd_resp_send_500(req);
+        return ESP_FAIL;
+    }
+
+    cJSON *root = cJSON_CreateObject();
+    if (!root) {
+        httpd_resp_send_500(req);
+        return ESP_FAIL;
+    }
+
+    // Only expose broker URL
+    cJSON_AddStringToObject(root, "broker_url", config.broker_url);
+
+    char *json_str = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+
+    if (!json_str) {
+        httpd_resp_send_500(req);
+        return ESP_FAIL;
+    }
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, json_str, strlen(json_str));
+    free(json_str);
+
+    return ESP_OK;
+}
+
+/* Configuration POST Handlers */
+static esp_err_t update_network_config_handler(httpd_req_t *req)
+{
+    char *content = malloc(req->content_len + 1);
+    if (!content) {
+        httpd_resp_send_500(req);
+        return ESP_FAIL;
+    }
+
+    int ret = httpd_req_recv(req, content, req->content_len);
+    if (ret <= 0) {
+        free(content);
+        httpd_resp_send_500(req);
+        return ESP_FAIL;
+    }
+    content[req->content_len] = '\0';
+
+    cJSON *root = cJSON_Parse(content);
+    free(content);
+
+    if (!root) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid JSON");
+        return ESP_FAIL;
+    }
+
+    network_config_t config;
+    // Load existing config first
+    esp_err_t err = system_manager_load_network_config(&config);
+    if (err != ESP_OK) {
+        cJSON_Delete(root);
+        httpd_resp_send_500(req);
+        return ESP_FAIL;
+    }
+
+    // Update only SSID and password
+    cJSON *item;
+    if ((item = cJSON_GetObjectItem(root, "wifi_ssid")) && item->valuestring) {
+        strlcpy(config.wifi_ssid, item->valuestring, sizeof(config.wifi_ssid));
+    }
+    if ((item = cJSON_GetObjectItem(root, "wifi_password")) && item->valuestring) {
+        strlcpy(config.wifi_password, item->valuestring, sizeof(config.wifi_password));
+    }
+
+    cJSON_Delete(root);
+
+    err = system_manager_save_network_config(&config);
+    if (err != ESP_OK) {
+        httpd_resp_send_500(req);
+        return ESP_FAIL;
+    }
+
+    // Send response before potential WiFi reconnect
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, "{\"status\":\"ok\"}");
+
+    // Update network manager after sending response
+    network_manager_update_config();
+
+    return ESP_OK;
+}
+
+static esp_err_t update_mqtt_config_handler(httpd_req_t *req)
+{
+    char *content = malloc(req->content_len + 1);
+    if (!content) {
+        httpd_resp_send_500(req);
+        return ESP_FAIL;
+    }
+
+    int ret = httpd_req_recv(req, content, req->content_len);
+    if (ret <= 0) {
+        free(content);
+        httpd_resp_send_500(req);
+        return ESP_FAIL;
+    }
+    content[req->content_len] = '\0';
+
+    cJSON *root = cJSON_Parse(content);
+    free(content);
+
+    if (!root) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid JSON");
+        return ESP_FAIL;
+    }
+
+    mqtt_config_t config;
+    esp_err_t err = system_manager_load_mqtt_config(&config);
+    if (err != ESP_OK) {
+        cJSON_Delete(root);
+        httpd_resp_send_500(req);
+        return ESP_FAIL;
+    }
+
+    // Update only broker URL
+    cJSON *item;
+    if ((item = cJSON_GetObjectItem(root, "broker_url")) && item->valuestring) {
+        strlcpy(config.broker_url, item->valuestring, sizeof(config.broker_url));
+    }
+
+    cJSON_Delete(root);
+
+    err = system_manager_save_mqtt_config(&config);
+    if (err != ESP_OK) {
+        httpd_resp_send_500(req);
+        return ESP_FAIL;
+    }
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, "{\"status\":\"ok\"}");
+
+    return ESP_OK;
+}
+
+/* Static File Handler Implementation */
 static esp_err_t static_file_handler(httpd_req_t *req)
 {
-    // Use a larger static buffer
-    char filepath[CONFIG_SPIFFS_OBJ_NAME_LEN + ESP_VFS_PATH_MAX];
+    char filepath[FILE_PATH_MAX];
     FILE *fd = NULL;
     struct stat file_stat;
     
@@ -199,7 +402,7 @@ static esp_err_t static_file_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-// Server initialization
+/* Server Initialization and Cleanup */
 esp_err_t http_server_init(const http_server_config_t *config)
 {
     if (server) {
@@ -210,6 +413,7 @@ esp_err_t http_server_init(const http_server_config_t *config)
     httpd_config_t http_config = HTTPD_DEFAULT_CONFIG();
     http_config.server_port = config->port;
     http_config.max_open_sockets = config->max_clients;
+    http_config.max_uri_handlers = 10;     // Add this line to increase from default
     http_config.lru_purge_enable = true;
     http_config.uri_match_fn = httpd_uri_match_wildcard;
     http_config.core_id = 0;
@@ -237,7 +441,6 @@ esp_err_t http_server_init(const http_server_config_t *config)
     return ESP_OK;
 }
 
-// Server cleanup
 esp_err_t http_server_stop(void)
 {
     if (!server) {

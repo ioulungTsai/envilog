@@ -35,6 +35,37 @@
                 </div>
             </div>
         </div>
+
+        <!-- Essential Configuration Section -->
+        <div class="config-section">
+            <!-- Network Configuration -->
+            <div class="card">
+                <h3>Network Settings</h3>
+                <form id="network-config-form" class="config-form">
+                    <div class="form-group">
+                        <label for="wifi-ssid">WiFi SSID:</label>
+                        <input type="text" id="wifi-ssid" name="wifi_ssid">
+                    </div>
+                    <div class="form-group">
+                        <label for="wifi-password">WiFi Password:</label>
+                        <input type="password" id="wifi-password" name="wifi_password">
+                    </div>
+                    <button type="submit">Save Network Settings</button>
+                </form>
+            </div>
+
+            <!-- MQTT Configuration -->
+            <div class="card">
+                <h3>MQTT Settings</h3>
+                <form id="mqtt-config-form" class="config-form">
+                    <div class="form-group">
+                        <label for="broker-url">Broker URL:</label>
+                        <input type="text" id="broker-url" name="broker_url">
+                    </div>
+                    <button type="submit">Save MQTT Settings</button>
+                </form>
+            </div>
+        </div>
     </div>
     <script src="/js/main.js"></script>
 </body>
