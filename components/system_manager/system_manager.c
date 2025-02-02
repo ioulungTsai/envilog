@@ -27,7 +27,7 @@ static temperature_sensor_handle_t temp_sensor = NULL;
 
 // Default thresholds
 #define DEFAULT_MIN_HEAP_THRESHOLD (10 * 1024)    // 10KB
-#define DEFAULT_STACK_HWM_THRESHOLD (2 * 1024)    // 2KB
+#define DEFAULT_STACK_HWM_THRESHOLD (1024)    // 1KB
 
 esp_err_t system_manager_init(void)
 {

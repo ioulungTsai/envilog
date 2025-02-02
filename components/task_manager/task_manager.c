@@ -9,6 +9,9 @@
 #include "freertos/task.h"
 #include "esp_cpu.h"
 
+#define MAX_MONITORED_TASKS 10
+#define STACK_INFO_PRINT_INTERVAL   60
+
 static const char *TAG = "task_manager";
 
 // System event group
@@ -28,7 +31,6 @@ typedef struct {
     uint64_t last_active_time;
 } task_monitor_data_t;
 
-#define MAX_MONITORED_TASKS 10
 static task_monitor_data_t monitored_tasks[MAX_MONITORED_TASKS];
 static size_t num_monitored_tasks = 0;
 
@@ -54,6 +56,16 @@ static void system_monitor_task(void *pvParameters) {
 
     // Initial task statistics update
     update_task_statistics();
+
+    // Print initial task stack info
+    ESP_LOGI(TAG, "-------- Task Stack Info --------");
+    for (size_t i = 0; i < num_monitored_tasks; i++) {
+        const char* task_name = monitored_tasks[i].status.pcTaskName;
+        UBaseType_t free_stack = monitored_tasks[i].stack_hwm;
+        ESP_LOGI(TAG, "Task: %-16s Free Stack: %u bytes", 
+                task_name, free_stack);
+    }
+    ESP_LOGI(TAG, "-------------------------------");
 
     while (1) {
         // Reset watchdog
@@ -176,13 +188,20 @@ static void system_monitor_task(void *pvParameters) {
                 xEventGroupSetBits(system_event_group, SYSTEM_EVENT_LOW_MEMORY);
             }
 
-            // Check stack watermarks
+            // Stack warnings only for application tasks
             for (size_t i = 0; i < num_monitored_tasks; i++) {
-                if (monitored_tasks[i].stack_hwm < sys_config.stack_hwm_threshold) {
-                    ESP_LOGW(TAG, "Low stack for task %s: %u bytes", 
-                            monitored_tasks[i].status.pcTaskName,
-                            monitored_tasks[i].stack_hwm);
-                    xEventGroupSetBits(system_event_group, SYSTEM_EVENT_STACK_WARNING);
+                const char* task_name = monitored_tasks[i].status.pcTaskName;
+                if (strncmp(task_name, "IDLE", 4) != 0 &&    // Skip IDLE0/1
+                    strncmp(task_name, "ipc", 3) != 0 &&     // Skip ipc0/1
+                    strncmp(task_name, "Tmr", 3) != 0 &&     // Skip Timer Service
+                    strncmp(task_name, "sys_evt", 7) != 0 && // Skip system events
+                    strncmp(task_name, "esp_timer", 9) != 0) // Skip ESP timer
+                {
+                    if (monitored_tasks[i].stack_hwm < sys_config.stack_hwm_threshold) {
+                        ESP_LOGW(TAG, "Low stack for task %s: %u bytes, Threshold: %lu", 
+                                task_name, monitored_tasks[i].stack_hwm, sys_config.stack_hwm_threshold);
+                        xEventGroupSetBits(system_event_group, SYSTEM_EVENT_STACK_WARNING);
+                    }
                 }
             }
         }
