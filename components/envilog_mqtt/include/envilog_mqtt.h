@@ -14,6 +14,9 @@
 #define ENVILOG_MQTT_TOPIC_STATUS       "/envilog/status"
 #define ENVILOG_MQTT_TOPIC_DIAGNOSTIC   "/envilog/diagnostic"
 #define ENVILOG_MQTT_TOPIC_MAX_LEN      64
+#define ENVILOG_MQTT_TOPIC_SENSORS      "/envilog/sensors"
+#define ENVILOG_MQTT_TOPIC_DHT11        "/envilog/sensors/dht11"
+#define ENVILOG_MQTT_TOPIC_SENSOR_CONFIG "/envilog/sensors/config"
 
 /**
  * @brief Initialize the MQTT client

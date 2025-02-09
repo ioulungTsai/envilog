@@ -64,4 +64,19 @@ menu "EnviLog Configuration"
         help
             Time between message retry attempts in milliseconds.
 
+    config DHT11_GPIO
+        int "DHT11 GPIO number"
+        range 0 48
+        default 4
+        help
+            GPIO number (IOxx) to communicate with the DHT11 sensor.
+
+    config DHT11_READ_INTERVAL
+        int "DHT11 reading interval (ms)"
+        range 2000 300000
+        default 10000
+        help
+            Interval between sensor readings in milliseconds.
+            Minimum 2000ms (2 seconds) recommended.
+
 endmenu

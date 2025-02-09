@@ -7,10 +7,12 @@ idf_component_register(
              "esp_wifi"
              "nvs_flash"
              "spiffs"
+             "json"
     PRIV_REQUIRES "task_manager"
                   "envilog_config" 
                   "network_manager"
                   "http_server"
                   "envilog_mqtt"
                   "system_manager"
+                  "dht11_sensor"
 )

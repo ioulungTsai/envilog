@@ -18,8 +18,11 @@
 #include "esp_spiffs.h"
 #include "envilog_mqtt.h"
 #include "system_manager.h"
+#include "dht11_sensor.h"
+#include "cJSON.h"
 
 static const char *TAG = "envilog";
+static void publish_sensor_diagnostics(void);
 
 // Function to print system diagnostics
 static void print_diagnostics(void) {
@@ -69,6 +72,7 @@ static void print_diagnostics(void) {
 // Timer callback for periodic diagnostics
 static void diagnostic_timer_callback(void* arg) {
     print_diagnostics();
+    publish_sensor_diagnostics();
 }
 
 static void test_monitor_commands(void) {
@@ -268,6 +272,29 @@ static void test_config_operations(void)
         ESP_LOGI(TAG, "Diagnostic interval: %lu ms", sys_cfg.diag_check_interval_ms);
     }
 }
+
+static void publish_sensor_diagnostics(void) {
+    dht11_reading_t reading;
+    if (dht11_get_last_reading(&reading) == ESP_OK && reading.valid) {
+        // Create JSON string for sensor data
+        cJSON *root = cJSON_CreateObject();
+        if (root) {
+            cJSON_AddNumberToObject(root, "temperature", reading.temperature);
+            cJSON_AddNumberToObject(root, "humidity", reading.humidity);
+            cJSON_AddNumberToObject(root, "timestamp", reading.timestamp);
+            
+            char *json_str = cJSON_PrintUnformatted(root);
+            if (json_str) {
+                // Publish to MQTT if connected
+                if (envilog_mqtt_is_connected()) {
+                    envilog_mqtt_publish_diagnostic("sensors/dht11", json_str, strlen(json_str));
+                }
+                free(json_str);
+            }
+            cJSON_Delete(root);
+        }
+    }
+}
         
 void app_main(void)
 {
@@ -340,6 +367,19 @@ void app_main(void)
 
     // Run MQTT queue test
     test_mqtt_queue();
+
+    ESP_LOGI(TAG, "Initializing DHT11 sensor...");
+    ret = dht11_init(CONFIG_DHT11_GPIO);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize DHT11: %s", esp_err_to_name(ret));
+    } else {
+        ret = dht11_start_reading(CONFIG_DHT11_READ_INTERVAL);
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to start DHT11 readings: %s", esp_err_to_name(ret));
+        } else {
+            ESP_LOGI(TAG, "DHT11 sensor started successfully");
+        }
+    }
 
     // Initialize HTTP server
     http_server_config_t http_config = {

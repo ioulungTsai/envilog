@@ -7,4 +7,6 @@ idf_component_register(
              "task_manager"
              "envilog_config"
              "system_manager"
+             "json"
+             "dht11_sensor"
 )

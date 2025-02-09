@@ -7,6 +7,8 @@
 #include "envilog_config.h"
 #include "system_manager.h"
 #include "task_manager.h"
+#include "cJSON.h"
+#include "dht11_sensor.h"
 
 static const char *TAG = "envilog_mqtt";
 
@@ -26,8 +28,15 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
             retry_count = 0;         // Reset counter
             immediate_retry = true;  // Reset to immediate mode
             ESP_LOGI(TAG, "MQTT Connected - queued messages will be sent");
+            
+            // Subscribe to status topic
             msg_id = esp_mqtt_client_subscribe(event->client, ENVILOG_MQTT_TOPIC_STATUS, 0);
             ESP_LOGI(TAG, "Subscribed to status, msg_id=%d", msg_id);
+            
+            // Subscribe to sensor configuration topic
+            msg_id = esp_mqtt_client_subscribe(event->client, ENVILOG_MQTT_TOPIC_SENSOR_CONFIG, 1);
+            ESP_LOGI(TAG, "Subscribed to sensor config, msg_id=%d", msg_id);
+            
             xEventGroupSetBits(mqtt_event_group, ENVILOG_MQTT_CONNECTED_BIT);
             xEventGroupClearBits(mqtt_event_group, ENVILOG_MQTT_DISCONNECTED_BIT);
             break;
@@ -45,6 +54,35 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
         case MQTT_EVENT_DATA:
             ESP_LOGI(TAG, "Received data on topic: %.*s", event->topic_len, event->topic);
             ESP_LOGI(TAG, "Data: %.*s", event->data_len, event->data);
+            
+            // Check if this is a sensor config message
+            if (strncmp(event->topic, ENVILOG_MQTT_TOPIC_SENSOR_CONFIG, event->topic_len) == 0) {
+                ESP_LOGI(TAG, "Received sensor config update");
+                // Parse configuration JSON
+                char *data_str = strndup(event->data, event->data_len);
+                if (data_str) {
+                    cJSON *root = cJSON_Parse(data_str);
+                    if (root) {
+                        cJSON *interval = cJSON_GetObjectItem(root, "read_interval");
+                        if (interval && cJSON_IsNumber(interval)) {
+                            uint32_t new_interval = (uint32_t)interval->valuedouble;
+                            if (new_interval >= 2000 && new_interval <= 300000) {
+                                // Stop current readings
+                                dht11_stop_reading();
+                                // Start with new interval
+                                dht11_start_reading(new_interval);
+                                ESP_LOGI(TAG, "Updated sensor read interval to %lu ms", new_interval);
+                            } else {
+                                ESP_LOGW(TAG, "Invalid interval value: %lu (must be between 2000-300000)", new_interval);
+                            }
+                        }
+                        cJSON_Delete(root);
+                    } else {
+                        ESP_LOGW(TAG, "Failed to parse sensor config JSON");
+                    }
+                    free(data_str);
+                }
+            }
             break;
 
        case MQTT_EVENT_ERROR:
