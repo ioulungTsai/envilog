@@ -3,7 +3,8 @@ const API_ENDPOINTS = {
     system: '/api/v1/system',
     network: '/api/v1/network',
     networkConfig: '/api/v1/config/network',
-    mqttConfig: '/api/v1/config/mqtt'
+    mqttConfig: '/api/v1/config/mqtt',
+    sensorDHT11: '/api/v1/sensors/dht11'
 };
 
 // Status update functions
@@ -28,6 +29,25 @@ async function updateNetworkInfo() {
         document.getElementById('rssi').textContent = `${data.rssi} dBm`;
     } catch (error) {
         console.error('Error fetching network info:', error);
+    }
+}
+
+async function updateSensorInfo() {
+    try {
+        const response = await fetch(API_ENDPOINTS.sensorDHT11);
+        const data = await response.json();
+        
+        if (data.valid) {
+            document.getElementById('temperature').textContent = 
+                `${data.temperature.toFixed(1)}°C`;
+            document.getElementById('humidity').textContent = 
+                `${data.humidity.toFixed(1)}%`;
+        } else {
+            document.getElementById('temperature').textContent = 'N/A';
+            document.getElementById('humidity').textContent = 'N/A';
+        }
+    } catch (error) {
+        console.error('Error fetching sensor data:', error);
     }
 }
 
@@ -134,6 +154,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load initial data
     updateSystemInfo();
     updateNetworkInfo();
+    updateSensorInfo();
     loadNetworkConfig();
     loadMqttConfig();
 
@@ -145,5 +166,6 @@ document.addEventListener('DOMContentLoaded', function() {
     setInterval(() => {
         updateSystemInfo();
         updateNetworkInfo();
+        updateSensorInfo();
     }, 5000);
 });

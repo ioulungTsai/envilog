@@ -11,6 +11,7 @@
 #include "network_manager.h"
 #include "system_manager.h"
 #include <sys/stat.h>
+#include "dht11_sensor.h"
 
 static const char *TAG = "http_server";
 static httpd_handle_t server = NULL;
@@ -23,9 +24,16 @@ static esp_err_t get_network_config_handler(httpd_req_t *req);
 static esp_err_t get_mqtt_config_handler(httpd_req_t *req);
 static esp_err_t update_network_config_handler(httpd_req_t *req);
 static esp_err_t update_mqtt_config_handler(httpd_req_t *req);
+static esp_err_t sensor_data_handler(httpd_req_t *req);
 
 /* URI Handler Configuration */
 static const httpd_uri_t uri_handlers[] = {
+    {
+        .uri = "/api/v1/sensors/dht11",
+        .method = HTTP_GET,
+        .handler = sensor_data_handler,
+        .user_ctx = NULL
+    },
     {
         .uri = "/api/v1/system",
         .method = HTTP_GET,
@@ -450,4 +458,38 @@ esp_err_t http_server_stop(void)
     esp_err_t ret = httpd_stop(server);
     server = NULL;
     return ret;
+}
+
+static esp_err_t sensor_data_handler(httpd_req_t *req) {
+    dht11_reading_t reading;
+    esp_err_t ret = dht11_get_last_reading(&reading);
+    
+    cJSON *root = cJSON_CreateObject();
+    if (!root) {
+        httpd_resp_send_500(req);
+        return ESP_FAIL;
+    }
+
+    if (ret == ESP_OK && reading.valid) {
+        cJSON_AddNumberToObject(root, "temperature", reading.temperature);
+        cJSON_AddNumberToObject(root, "humidity", reading.humidity);
+        cJSON_AddNumberToObject(root, "timestamp", reading.timestamp);
+        cJSON_AddBoolToObject(root, "valid", true);
+    } else {
+        cJSON_AddBoolToObject(root, "valid", false);
+    }
+
+    char *json_str = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+
+    if (!json_str) {
+        httpd_resp_send_500(req);
+        return ESP_FAIL;
+    }
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, json_str, strlen(json_str));
+    free(json_str);
+
+    return ESP_OK;
 }

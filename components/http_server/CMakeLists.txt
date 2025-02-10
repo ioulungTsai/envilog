@@ -11,4 +11,5 @@ idf_component_register(
         "network_manager"
         "envilog_config"
         "vfs"
+        "dht11_sensor"
 )
