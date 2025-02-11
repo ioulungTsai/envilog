@@ -7,11 +7,8 @@ EnviLog is an embedded system project based on ESP32-S3 for environmental monito
 
 ## Hardware
 - Core Board: ESP32-S3-DevKitC-1-N32R8V
-- Display: LCD1602 (Status Display) - Future Integration
-- Sensors (Future Integration):
+- Sensors:
   - DHT11: Temperature/Humidity
-  - Photoresistors: Light/Motion
-  - HC-SR04: Distance
 
 ## Project Structure
 ```
@@ -38,6 +35,11 @@ envilog/
 │   │   ├── include/
 │   │   │   └── network_manager.h
 │   │   └── network_manager.c
+│   ├── system_manager/      # System configurations management
+│   │   ├── CMakeLists.txt
+│   │   ├── include/
+│   │   │   └── system_manager.h
+│   │   └── system_manager.c
 │   └── task_manager/        # FreeRTOS task management
 │       ├── CMakeLists.txt
 │       ├── include/
@@ -109,7 +111,7 @@ idf.py monitor
 ## Project Status
 - [x] Development environment setup
 - [x] Project structure setup
-- [x] Basic configuration complete
+- [x] Basic configuration
   - ESP-IDF SDK configured
   - Logging framework setup
   - Error handling implemented
@@ -141,15 +143,39 @@ idf.py monitor
    - Message queuing
    - Event handling
    - Status monitoring
-- [ ] System Integration
+- [x] System Integration
    - Configuration storage
-   - OTA update system
    - System diagnostics expansion
    - Additional logging features
    - Enhanced error reporting
-- [ ] Display system integration
-- [ ] Sensor integration
+- [x] Environmental Monitoring
+   - DHT11 sensor integration
+   - Temperature/humidity readings
+   - Data validation
+   - MQTT publishing
+   - Web interface display
 
+## Future Scope
+1. Enhanced Display System
+   - LCD1602 integration
+   - Status display templates
+   - Real-time sensor readings
+2. Extended Sensor Suite
+   - Light intensity monitoring
+   - Distance/proximity sensing
+   - Multi-sensor data fusion
+3. Advanced System Features
+   - Over-the-Air updates
+   - Extended data storage
+   - Advanced calibration
+   - Backup systems
+   - Analytics capabilities
+4. System Optimizations
+   - Power management
+   - Deep sleep support
+   - Extended diagnostics
+   - Performance optimization
+   - Security hardening
 
 ## Version
 Current version: v0.2.0
@@ -160,6 +186,7 @@ Features:
 - Error handling framework
 - Web interface with dashboard
 - Static file serving
+- MQTT integration
 
 ## Acknowledgments
 - ESP-IDF framework and documentation
