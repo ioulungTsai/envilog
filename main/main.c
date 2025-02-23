@@ -22,6 +22,11 @@
 #include "cJSON.h"
 
 static const char *TAG = "envilog";
+
+// Function declarations
+static void print_diagnostics(void);
+static void diagnostic_timer_callback(void* arg);
+static esp_err_t init_spiffs(void);
 static void publish_sensor_diagnostics(void);
 
 // Function to print system diagnostics
@@ -75,51 +80,13 @@ static void diagnostic_timer_callback(void* arg) {
     publish_sensor_diagnostics();
 }
 
-static void test_monitor_commands(void) {
-    // Test getting heap info
-    sys_monitor_cmd_msg_t cmd = {
-        .cmd = SYS_MONITOR_CMD_GET_HEAP,
-        .data = NULL,
-        .data_len = 0
-    };
-    
-    sys_monitor_resp_msg_t resp;
-    
-    ESP_LOGI(TAG, "Testing monitor commands...");
-    
-    if (system_monitor_send_command(&cmd, pdMS_TO_TICKS(1000)) == ESP_OK) {
-        if (system_monitor_get_response(&resp, pdMS_TO_TICKS(1000)) == ESP_OK) {
-            if (resp.status == ESP_OK && resp.data != NULL) {
-                uint32_t *heap_info = (uint32_t*)resp.data;
-                ESP_LOGI(TAG, "Heap info - Current: %lu, Minimum: %lu", 
-                        heap_info[0], heap_info[1]);
-                free(resp.data);  // Don't forget to free the allocated data
-            }
-        }
-    }
-    
-    // Test changing interval
-    uint32_t new_interval = 2000;  // 2 seconds
-    cmd.cmd = SYS_MONITOR_CMD_SET_INTERVAL;
-    cmd.data = &new_interval;
-    cmd.data_len = sizeof(new_interval);
-    
-    if (system_monitor_send_command(&cmd, pdMS_TO_TICKS(1000)) == ESP_OK) {
-        if (system_monitor_get_response(&resp, pdMS_TO_TICKS(1000)) == ESP_OK) {
-            ESP_LOGI(TAG, "Interval change %s", 
-                    resp.status == ESP_OK ? "successful" : "failed");
-        }
-    }
-}
-
-static esp_err_t init_spiffs(void)
-{
+static esp_err_t init_spiffs(void) {
     ESP_LOGI(TAG, "Initializing SPIFFS");
 
     esp_vfs_spiffs_conf_t conf = {
         .base_path = "/www",
-        .partition_label = NULL,  // Use default partition
-        .max_files = 5,          // Maximum number of files that can be open at the same time
+        .partition_label = NULL,
+        .max_files = 5,
         .format_if_mount_failed = true
     };
 
@@ -146,133 +113,6 @@ static esp_err_t init_spiffs(void)
     return ESP_OK;
 }
 
-static void test_mqtt_queue(void)
-{
-    ESP_LOGI(TAG, "Starting MQTT queue test...");
-
-    // Test status messages (QoS 0)
-    for (int i = 0; i < 5; i++) {
-        char status_msg[64];
-        snprintf(status_msg, sizeof(status_msg), "Status update %d", i);
-        ESP_LOGI(TAG, "Publishing status message %d", i);
-        envilog_mqtt_publish_status(status_msg, 0);
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-
-    // Test diagnostic messages (QoS 1)
-    for (int i = 0; i < 5; i++) {
-        char diag_msg[64];
-        snprintf(diag_msg, sizeof(diag_msg), "Diagnostic data %d", i);
-        ESP_LOGI(TAG, "Publishing diagnostic message %d", i);
-        envilog_mqtt_publish_diagnostic("test", diag_msg, 0);
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-
-    ESP_LOGI(TAG, "MQTT queue test completed");
-}
-
-// Network configuration test
-static void test_network_config(void)
-{
-    ESP_LOGI(TAG, "Starting network configuration tests...");
-
-    // Test A: First Boot - Already handled by network_manager logs
-    ESP_LOGI(TAG, "Test A: First boot configuration");
-    vTaskDelay(pdMS_TO_TICKS(5000));  // Wait for initial connection
-
-    // Test B: Configuration Update
-    ESP_LOGI(TAG, "Test B: Configuration update");
-    network_config_t new_config = {
-        .wifi_ssid = "TestSSID",
-        .wifi_password = "TestPassword",
-        .max_retry = 3,
-        .conn_timeout_ms = 10000
-    };
-    
-    esp_err_t ret = system_manager_save_network_config(&new_config);
-    if (ret == ESP_OK) {
-        ESP_LOGI(TAG, "New configuration saved");
-        ret = network_manager_update_config();
-        if (ret == ESP_OK) {
-            ESP_LOGI(TAG, "Network configuration updated");
-        } else {
-            ESP_LOGE(TAG, "Failed to update network configuration: %s", esp_err_to_name(ret));
-        }
-    } else {
-        ESP_LOGE(TAG, "Failed to save new configuration: %s", esp_err_to_name(ret));
-    }
-
-    // Test C: Settings Persistence
-    ESP_LOGI(TAG, "Test C: Please power cycle the device");
-    ESP_LOGI(TAG, "After restart, check if settings persist");
-}
-
-// MQTT configuration test
-static void test_mqtt_config(void)
-{
-   ESP_LOGI(TAG, "Starting MQTT configuration tests...");
-
-   // Test D: First Boot - Check initial MQTT settings
-   ESP_LOGI(TAG, "Test D: First boot MQTT configuration");
-   vTaskDelay(pdMS_TO_TICKS(5000));  // Wait for initial connection
-
-   // Test E: MQTT Configuration Update
-   ESP_LOGI(TAG, "Test E: MQTT configuration update");
-   mqtt_config_t new_config = {
-       .broker_url = "mqtt://test.mosquitto.org",
-       .client_id = "test_envilog",
-       .keepalive = 60,
-       .timeout_ms = 2000,
-       .retry_timeout_ms = 1000
-   };
-   
-   esp_err_t ret = system_manager_save_mqtt_config(&new_config);
-   if (ret == ESP_OK) {
-       ESP_LOGI(TAG, "New MQTT configuration saved");
-       ret = envilog_mqtt_update_config();
-       if (ret == ESP_OK) {
-           ESP_LOGI(TAG, "MQTT configuration updated");
-       } else {
-           ESP_LOGE(TAG, "Failed to update MQTT configuration: %s", esp_err_to_name(ret));
-       }
-   } else {
-       ESP_LOGE(TAG, "Failed to save new MQTT configuration: %s", esp_err_to_name(ret));
-   }
-
-   // Test F: MQTT Settings Persistence
-   ESP_LOGI(TAG, "Test F: Please power cycle the device");
-   ESP_LOGI(TAG, "After restart, check if MQTT settings persist");
-}
-
-static void test_config_operations(void)
-{
-    ESP_LOGI(TAG, "Testing configuration operations...");
-    
-    // Test network configuration
-    network_config_t net_cfg;
-    esp_err_t ret = system_manager_load_network_config(&net_cfg);
-    if (ret == ESP_OK) {
-        ESP_LOGI(TAG, "Current WiFi SSID: %s", net_cfg.wifi_ssid);
-        ESP_LOGI(TAG, "Max retry: %u", net_cfg.max_retry);
-    }
-
-    // Test MQTT configuration
-    mqtt_config_t mqtt_cfg;
-    ret = system_manager_load_mqtt_config(&mqtt_cfg);
-    if (ret == ESP_OK) {
-        ESP_LOGI(TAG, "MQTT Broker URL: %s", mqtt_cfg.broker_url);
-        ESP_LOGI(TAG, "MQTT Client ID: %s", mqtt_cfg.client_id);
-    }
-
-    // Test system configuration
-    system_config_t sys_cfg;
-    ret = system_manager_load_system_config(&sys_cfg);
-    if (ret == ESP_OK) {
-        ESP_LOGI(TAG, "Task WDT timeout: %lu ms", sys_cfg.task_wdt_timeout_ms);
-        ESP_LOGI(TAG, "Diagnostic interval: %lu ms", sys_cfg.diag_check_interval_ms);
-    }
-}
-
 static void publish_sensor_diagnostics(void) {
     dht11_reading_t reading;
     if (dht11_get_last_reading(&reading) == ESP_OK && reading.valid) {
@@ -295,9 +135,8 @@ static void publish_sensor_diagnostics(void) {
         }
     }
 }
-        
-void app_main(void)
-{
+
+void app_main(void) {
     // Initialize logging
     esp_log_level_set(TAG, ESP_LOG_INFO);
     ESP_LOGI(TAG, "EnviLog v%d.%d.%d starting...", 
@@ -315,18 +154,15 @@ void app_main(void)
     ESP_ERROR_CHECK(system_manager_init());
     ESP_LOGI(TAG, "System manager initialized");
 
-    // Run system manager test
-    test_config_operations();
-
-    // Initialize SPIFFS - Add here
+    // Initialize SPIFFS
     ESP_ERROR_CHECK(init_spiffs());
     ESP_LOGI(TAG, "SPIFFS initialized successfully");
 
-    // Initialize TWDT here
+    // Initialize TWDT
     esp_task_wdt_config_t twdt_config = {
         .timeout_ms = ENVILOG_TASK_WDT_TIMEOUT_MS,
-        .idle_core_mask = 0,     // Don't watch idle tasks
-        .trigger_panic = true    // Trigger panic on timeout
+        .idle_core_mask = 0,
+        .trigger_panic = true
     };
     ESP_ERROR_CHECK(esp_task_wdt_reconfigure(&twdt_config));
     ESP_LOGI(TAG, "Task watchdog reconfigured");
@@ -351,23 +187,12 @@ void app_main(void)
     ESP_ERROR_CHECK(network_manager_start());
     ESP_LOGI(TAG, "Network manager started");
 
-    // Run Network configuration test
-    // test_network_config();
-
     // Initialize and start MQTT client
     ESP_ERROR_CHECK(envilog_mqtt_init());
     ESP_ERROR_CHECK(envilog_mqtt_start());
     ESP_LOGI(TAG, "MQTT client started");
-    
-    // Run MQTT configuration test
-    // test_mqtt_config();
 
-    // Wait a bit for MQTT to connect
-    vTaskDelay(pdMS_TO_TICKS(2000));
-
-    // Run MQTT queue test
-    test_mqtt_queue();
-
+    // Initialize DHT11 sensor
     ESP_LOGI(TAG, "Initializing DHT11 sensor...");
     ret = dht11_init(CONFIG_DHT11_GPIO);
     if (ret != ESP_OK) {
@@ -389,9 +214,9 @@ void app_main(void)
     };
 
     ESP_LOGI(TAG, "Starting HTTP server...");
-    esp_err_t http_ret = http_server_init(&http_config);  // Changed from ret to http_ret
-    if (http_ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to start HTTP server: %s", esp_err_to_name(http_ret));
+    ret = http_server_init(&http_config);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start HTTP server: %s", esp_err_to_name(ret));
         return;
     }
 
@@ -417,8 +242,6 @@ void app_main(void)
 
     ESP_LOGI(TAG, "System initialized successfully");
     print_diagnostics();
-
-    test_monitor_commands();
 
     // Main loop - can be used for future main task operations
     while (1) {
