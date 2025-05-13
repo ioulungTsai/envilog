@@ -12,11 +12,13 @@
 #include "system_manager.h"
 #include <sys/stat.h>
 #include "dht11_sensor.h"
+#include "esp_spiffs.h"
 
 static const char *TAG = "http_server";
 static httpd_handle_t server = NULL;
 
 /* Function Declarations */
+static esp_err_t init_spiffs(void);
 static esp_err_t system_info_handler(httpd_req_t *req);
 static esp_err_t network_info_handler(httpd_req_t *req);
 static esp_err_t static_file_handler(httpd_req_t *req);
@@ -25,6 +27,39 @@ static esp_err_t get_mqtt_config_handler(httpd_req_t *req);
 static esp_err_t update_network_config_handler(httpd_req_t *req);
 static esp_err_t update_mqtt_config_handler(httpd_req_t *req);
 static esp_err_t sensor_data_handler(httpd_req_t *req);
+
+static esp_err_t init_spiffs(void) {
+    ESP_LOGI(TAG, "Initializing SPIFFS");
+
+    esp_vfs_spiffs_conf_t conf = {
+        .base_path = "/www",
+        .partition_label = NULL,
+        .max_files = 5,
+        .format_if_mount_failed = true
+    };
+
+    esp_err_t ret = esp_vfs_spiffs_register(&conf);
+    if (ret != ESP_OK) {
+        if (ret == ESP_FAIL) {
+            ESP_LOGE(TAG, "Failed to mount or format filesystem");
+        } else if (ret == ESP_ERR_NOT_FOUND) {
+            ESP_LOGE(TAG, "Failed to find SPIFFS partition");
+        } else {
+            ESP_LOGE(TAG, "Failed to initialize SPIFFS (%s)", esp_err_to_name(ret));
+        }
+        return ret;
+    }
+
+    size_t total = 0, used = 0;
+    ret = esp_spiffs_info(NULL, &total, &used);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to get SPIFFS partition information (%s)", esp_err_to_name(ret));
+        return ret;
+    }
+
+    ESP_LOGI(TAG, "Partition size: total: %d, used: %d", total, used);
+    return ESP_OK;
+}
 
 /* URI Handler Configuration */
 static const httpd_uri_t uri_handlers[] = {
@@ -418,6 +453,12 @@ esp_err_t http_server_init(const http_server_config_t *config)
         return ESP_ERR_INVALID_STATE;
     }
 
+    // Initialize SPIFFS first
+    esp_err_t ret = init_spiffs();
+    if (ret != ESP_OK) {
+        return ret;
+    }
+
     httpd_config_t http_config = HTTPD_DEFAULT_CONFIG();
     http_config.server_port = config->port;
     http_config.max_open_sockets = config->max_clients;
@@ -429,7 +470,7 @@ esp_err_t http_server_init(const http_server_config_t *config)
     http_config.stack_size = 8192;
 
     ESP_LOGI(TAG, "Starting HTTP server on port: %d", config->port);
-    esp_err_t ret = httpd_start(&server, &http_config);
+    ret = httpd_start(&server, &http_config);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to start HTTP server: %s", esp_err_to_name(ret));
         return ret;
@@ -492,4 +533,18 @@ static esp_err_t sensor_data_handler(httpd_req_t *req) {
     free(json_str);
 
     return ESP_OK;
+}
+
+http_server_config_t http_server_get_default_config(void) {
+    http_server_config_t config = {
+        .port = 80,
+        .max_clients = 4,
+        .enable_cors = true
+    };
+    return config;
+}
+
+esp_err_t http_server_init_default(void) {
+    http_server_config_t config = http_server_get_default_config();
+    return http_server_init(&config);
 }

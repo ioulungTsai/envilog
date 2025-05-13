@@ -35,6 +35,20 @@ esp_err_t http_server_init(const http_server_config_t *config);
  */
 esp_err_t http_server_stop(void);
 
+/**
+ * @brief Get default HTTP server configuration
+ * 
+ * @return http_server_config_t Default configuration
+ */
+http_server_config_t http_server_get_default_config(void);
+
+/**
+ * @brief Initialize and start HTTP server with default configuration
+ * 
+ * @return esp_err_t ESP_OK on success
+ */
+esp_err_t http_server_init_default(void);
+
 #ifdef __cplusplus
 }
 #endif
