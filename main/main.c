@@ -24,61 +24,8 @@
 static const char *TAG = "envilog";
 
 // Function declarations
-static void print_diagnostics(void);
-static void diagnostic_timer_callback(void* arg);
 static esp_err_t init_spiffs(void);
 static void publish_sensor_diagnostics(void);
-
-// Function to print system diagnostics
-static void print_diagnostics(void) {
-    ESP_LOGI(TAG, "System Diagnostics:");
-    ESP_LOGI(TAG, "- Free heap: %lu bytes", esp_get_free_heap_size());
-    ESP_LOGI(TAG, "- Minimum free heap: %lu bytes", esp_get_minimum_free_heap_size());
-    ESP_LOGI(TAG, "- Running time: %lld ms", esp_timer_get_time() / 1000);
-    ESP_LOGI(TAG, "- WiFi status: %s", network_manager_is_connected() ? "Connected" : "Disconnected");
-
-    // Add WiFi RSSI when connected
-    if (network_manager_is_connected()) {
-        int8_t rssi;
-        if (network_manager_get_rssi(&rssi) == ESP_OK) {
-            ESP_LOGI(TAG, "- WiFi RSSI: %d dBm", rssi);
-        }
-    }
-
-    // Add SPIFFS diagnostics
-    size_t total = 0, used = 0;
-    if (esp_spiffs_info(NULL, &total, &used) == ESP_OK) {
-        ESP_LOGI(TAG, "- SPIFFS: %d KB used of %d KB", used/1024, total/1024);
-    } else {
-        ESP_LOGW(TAG, "- SPIFFS: Failed to get partition information");
-    }
-
-    // Add task manager diagnostics
-    TaskStatus_t *task_status_array;
-    UBaseType_t task_count = uxTaskGetNumberOfTasks();
-    task_status_array = pvPortMalloc(task_count * sizeof(TaskStatus_t));
-    
-    if (task_status_array != NULL) {
-        uint32_t total_runtime;
-        task_count = uxTaskGetSystemState(task_status_array, task_count, &total_runtime);
-        
-        ESP_LOGI(TAG, "Task Status:");
-        for (int i = 0; i < task_count; i++) {
-            ESP_LOGI(TAG, "- %s: %s (Priority: %d)",
-                     task_status_array[i].pcTaskName,
-                     get_task_state_name(task_status_array[i].eCurrentState),
-                     task_status_array[i].uxCurrentPriority);
-        }
-        
-        vPortFree(task_status_array);
-    }
-}
-
-// Timer callback for periodic diagnostics
-static void diagnostic_timer_callback(void* arg) {
-    print_diagnostics();
-    publish_sensor_diagnostics();
-}
 
 static esp_err_t init_spiffs(void) {
     ESP_LOGI(TAG, "Initializing SPIFFS");
@@ -220,28 +167,15 @@ void app_main(void) {
         return;
     }
 
-    // Create periodic timer for diagnostics
-    const esp_timer_create_args_t timer_args = {
-        .callback = diagnostic_timer_callback,
-        .name = "diagnostic_timer"
-    };
-    esp_timer_handle_t diagnostic_timer;
-    
-    ret = esp_timer_create(&timer_args, &diagnostic_timer);
+    ESP_LOGI(TAG, "Starting diagnostics system...");
+    ret = system_manager_start_diagnostics(ENVILOG_DIAG_CHECK_INTERVAL_MS);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to create diagnostic timer: %s", esp_err_to_name(ret));
-        return;
-    }
-
-    // Start periodic diagnostics
-    ret = esp_timer_start_periodic(diagnostic_timer, ENVILOG_DIAG_CHECK_INTERVAL_MS * 1000);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to start diagnostic timer: %s", esp_err_to_name(ret));
+        ESP_LOGE(TAG, "Failed to start diagnostics: %s", esp_err_to_name(ret));
         return;
     }
 
     ESP_LOGI(TAG, "System initialized successfully");
-    print_diagnostics();
+    system_manager_print_diagnostics();
 
     // Main loop - can be used for future main task operations
     while (1) {

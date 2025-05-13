@@ -1,4 +1,6 @@
 #include "system_manager.h"
+#include "network_manager.h"
+#include "task_manager.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "nvs.h"
@@ -11,6 +13,7 @@
 #include "freertos/task.h"
 #include "esp_mac.h"
 #include "driver/temperature_sensor.h"
+#include "esp_spiffs.h"
 
 static const char *TAG = "system_manager";
 static nvs_handle_t nvs_config_handle;
@@ -18,6 +21,7 @@ static nvs_handle_t nvs_config_handle;
 // System start time for uptime calculation
 static int64_t system_start_time;
 static temperature_sensor_handle_t temp_sensor = NULL;
+static esp_timer_handle_t diagnostic_timer = NULL;
 
 // NVS namespace and keys
 #define NVS_NAMESPACE "envilog"
@@ -277,4 +281,78 @@ esp_err_t system_manager_set_diag_interval(uint32_t interval_ms)
 
     config.diag_check_interval_ms = interval_ms;
     return system_manager_save_system_config(&config);
+}
+
+static void system_manager_diagnostic_callback(void* arg) {
+    // Print diagnostics
+    system_manager_print_diagnostics();
+    
+    // Note: We'll add sensor diagnostics in Component 3
+}
+
+void system_manager_print_diagnostics(void) {
+    ESP_LOGI(TAG, "System Diagnostics:");
+    ESP_LOGI(TAG, "- Free heap: %lu bytes", esp_get_free_heap_size());
+    ESP_LOGI(TAG, "- Minimum free heap: %lu bytes", esp_get_minimum_free_heap_size());
+    ESP_LOGI(TAG, "- Running time: %lld ms", esp_timer_get_time() / 1000);
+    ESP_LOGI(TAG, "- WiFi status: %s", network_manager_is_connected() ? "Connected" : "Disconnected");
+
+    // Add WiFi RSSI when connected
+    if (network_manager_is_connected()) {
+        int8_t rssi;
+        if (network_manager_get_rssi(&rssi) == ESP_OK) {
+            ESP_LOGI(TAG, "- WiFi RSSI: %d dBm", rssi);
+        }
+    }
+
+    // Add SPIFFS diagnostics
+    size_t total = 0, used = 0;
+    if (esp_spiffs_info(NULL, &total, &used) == ESP_OK) {
+        ESP_LOGI(TAG, "- SPIFFS: %d KB used of %d KB", used/1024, total/1024);
+    } else {
+        ESP_LOGW(TAG, "- SPIFFS: Failed to get partition information");
+    }
+
+    // Add task manager diagnostics
+    TaskStatus_t *task_status_array;
+    UBaseType_t task_count = uxTaskGetNumberOfTasks();
+    task_status_array = pvPortMalloc(task_count * sizeof(TaskStatus_t));
+    
+    if (task_status_array != NULL) {
+        uint32_t total_runtime;
+        task_count = uxTaskGetSystemState(task_status_array, task_count, &total_runtime);
+        
+        ESP_LOGI(TAG, "Task Status:");
+        for (int i = 0; i < task_count; i++) {
+            ESP_LOGI(TAG, "- %s: %s (Priority: %d)",
+                     task_status_array[i].pcTaskName,
+                     get_task_state_name(task_status_array[i].eCurrentState),
+                     task_status_array[i].uxCurrentPriority);
+        }
+        
+        vPortFree(task_status_array);
+    }
+}
+
+esp_err_t system_manager_start_diagnostics(uint32_t interval_ms) {
+    // Create periodic timer for diagnostics
+    const esp_timer_create_args_t timer_args = {
+        .callback = system_manager_diagnostic_callback,
+        .name = "diagnostic_timer"
+    };
+    
+    esp_err_t ret = esp_timer_create(&timer_args, &diagnostic_timer);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to create diagnostic timer: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    // Start periodic diagnostics
+    ret = esp_timer_start_periodic(diagnostic_timer, interval_ms * 1000);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start diagnostic timer: %s", esp_err_to_name(ret));
+        return ret;
+    }
+    
+    return ESP_OK;
 }

@@ -111,3 +111,16 @@ esp_err_t system_manager_get_diagnostics(system_diag_data_t *diag_data);
  * @return esp_err_t ESP_OK on success
  */
 esp_err_t system_manager_set_diag_interval(uint32_t interval_ms);
+
+/**
+ * @brief Start the diagnostic timer
+ * 
+ * @param interval_ms Interval in milliseconds
+ * @return esp_err_t ESP_OK on success
+ */
+esp_err_t system_manager_start_diagnostics(uint32_t interval_ms);
+
+/**
+ * @brief Print system diagnostics information
+ */
+void system_manager_print_diagnostics(void);
