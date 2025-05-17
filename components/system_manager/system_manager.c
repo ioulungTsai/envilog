@@ -14,6 +14,8 @@
 #include "esp_mac.h"
 #include "driver/temperature_sensor.h"
 #include "esp_spiffs.h"
+#include "dht11_sensor.h"
+#include "envilog_mqtt.h"
 
 static const char *TAG = "system_manager";
 static nvs_handle_t nvs_config_handle;
@@ -287,7 +289,10 @@ static void system_manager_diagnostic_callback(void* arg) {
     // Print diagnostics
     system_manager_print_diagnostics();
     
-    // Note: We'll add sensor diagnostics in Component 3
+    // Publish sensor diagnostics if MQTT is connected
+    if (envilog_mqtt_is_connected()) {
+        dht11_publish_diagnostics();
+    }
 }
 
 void system_manager_print_diagnostics(void) {

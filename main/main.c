@@ -9,45 +9,19 @@
 #include "nvs_flash.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "freertos/event_groups.h"
+// #include "freertos/event_groups.h"
 #include "envilog_config.h"
 #include "task_manager.h"
 #include "network_manager.h"
 #include "system_monitor_msg.h"
 #include "http_server.h"
-#include "esp_spiffs.h"
+// #include "esp_spiffs.h"
 #include "envilog_mqtt.h"
 #include "system_manager.h"
 #include "dht11_sensor.h"
-#include "cJSON.h"
+// #include "cJSON.h"
 
 static const char *TAG = "envilog";
-
-// Function declarations
-static void publish_sensor_diagnostics(void);
-
-static void publish_sensor_diagnostics(void) {
-    dht11_reading_t reading;
-    if (dht11_get_last_reading(&reading) == ESP_OK && reading.valid) {
-        // Create JSON string for sensor data
-        cJSON *root = cJSON_CreateObject();
-        if (root) {
-            cJSON_AddNumberToObject(root, "temperature", reading.temperature);
-            cJSON_AddNumberToObject(root, "humidity", reading.humidity);
-            cJSON_AddNumberToObject(root, "timestamp", reading.timestamp);
-            
-            char *json_str = cJSON_PrintUnformatted(root);
-            if (json_str) {
-                // Publish to MQTT if connected
-                if (envilog_mqtt_is_connected()) {
-                    envilog_mqtt_publish_diagnostic("sensors/dht11", json_str, strlen(json_str));
-                }
-                free(json_str);
-            }
-            cJSON_Delete(root);
-        }
-    }
-}
 
 void app_main(void) {
     // Initialize logging

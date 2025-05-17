@@ -222,3 +222,28 @@ esp_err_t dht11_get_last_reading(dht11_reading_t *reading) {
     memcpy(reading, &last_reading, sizeof(dht11_reading_t));
     return ESP_OK;
 }
+
+esp_err_t dht11_publish_diagnostics(void) {
+    dht11_reading_t reading;
+    if (dht11_get_last_reading(&reading) == ESP_OK && reading.valid) {
+        // Create JSON string for sensor data
+        cJSON *root = cJSON_CreateObject();
+        if (root) {
+            cJSON_AddNumberToObject(root, "temperature", reading.temperature);
+            cJSON_AddNumberToObject(root, "humidity", reading.humidity);
+            cJSON_AddNumberToObject(root, "timestamp", reading.timestamp);
+            
+            char *json_str = cJSON_PrintUnformatted(root);
+            if (json_str) {
+                // Publish to MQTT if connected
+                if (envilog_mqtt_is_connected()) {
+                    envilog_mqtt_publish_diagnostic("sensors/dht11", json_str, strlen(json_str));
+                }
+                free(json_str);
+            }
+            cJSON_Delete(root);
+        }
+    }
+    
+    return ESP_OK;
+}
