@@ -11,4 +11,5 @@ idf_component_register(
             "envilog_mqtt" 
             "json" 
             "esp_hw_support"
+            "error_handler"
 )

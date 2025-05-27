@@ -12,4 +12,6 @@ idf_component_register(
         "envilog_config"
         "vfs"
         "dht11_sensor"
+        "error_handler"
+
 )

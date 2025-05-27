@@ -9,4 +9,5 @@ idf_component_register(
              "system_manager"
              "json"
              "dht11_sensor"
+             "error_handler"
 )

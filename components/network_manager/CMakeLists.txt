@@ -11,4 +11,5 @@ idf_component_register(
              "envilog_config"
              "esp_system"
              "system_manager"
+             "error_handler"
 )
