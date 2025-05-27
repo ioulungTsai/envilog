@@ -11,11 +11,42 @@
 #include "error_handler.h"
 
 static const char *TAG = "dht11";
+
+// DHT11 datasheet specifications
+#define DHT11_MIN_INTERVAL_MS    2000   // Minimum 2 seconds between reads
+#define DHT11_TEMP_MIN           0      // 0°C minimum operating temperature  
+#define DHT11_TEMP_MAX           50     // 50°C maximum operating temperature
+#define DHT11_HUM_MIN            20     // 20%RH minimum at 25°C
+#define DHT11_HUM_MAX            90     // 90%RH maximum at 25°C
+
 static uint8_t dht_gpio;
 static TaskHandle_t dht11_task_handle = NULL;
 static dht11_reading_t last_reading = {0};
 static bool sensor_running = false;
 static int64_t last_read_time = -2000000;
+
+// Basic statistics tracking for reliability monitoring
+static uint32_t total_reads = 0;
+static uint32_t failed_reads = 0;
+
+// Validate sensor reading against datasheet specifications
+static bool validate_dht11_reading(const dht11_reading_t *reading) {
+    // Validate temperature range from datasheet
+    if (reading->temperature < DHT11_TEMP_MIN || reading->temperature > DHT11_TEMP_MAX) {
+        ESP_LOGW(TAG, "Temperature out of range: %.1f°C (valid: %d-%d°C)", 
+                 reading->temperature, DHT11_TEMP_MIN, DHT11_TEMP_MAX);
+        return false;
+    }
+    
+    // Validate humidity range from datasheet
+    if (reading->humidity < DHT11_HUM_MIN || reading->humidity > DHT11_HUM_MAX) {
+        ESP_LOGW(TAG, "Humidity out of range: %.1f%% (valid: %d-%d%%)", 
+                 reading->humidity, DHT11_HUM_MIN, DHT11_HUM_MAX);
+        return false;
+    }
+    
+    return true;
+}
 
 // Helper function for timing-based reading
 static int wait_or_timeout(uint16_t microSeconds, int level) {
@@ -126,9 +157,12 @@ esp_err_t dht11_init(uint8_t gpio_num) {
 esp_err_t dht11_read(dht11_reading_t *reading) {
     if (reading == NULL) return ESP_ERR_INVALID_ARG;
     
-    // Check if 2 seconds have passed since last read
-    if(esp_timer_get_time() - 2000000 < last_read_time) {
+    // Enforce datasheet timing requirement (minimum 2 seconds between reads)
+    int64_t current_time = esp_timer_get_time();
+    if (current_time - last_read_time < (DHT11_MIN_INTERVAL_MS * 1000)) {
+        // Return cached reading if too soon
         memcpy(reading, &last_reading, sizeof(dht11_reading_t));
+        ESP_LOGD(TAG, "Using cached reading (too soon for new read)");
         return ESP_OK;
     }
     
@@ -139,16 +173,25 @@ esp_err_t dht11_read(dht11_reading_t *reading) {
         reading->humidity = (float)data[0] + (float)data[1]/10.0f;
         reading->temperature = (float)data[2] + (float)data[3]/10.0f;
         reading->timestamp = esp_timer_get_time() / 1000;  // microseconds to milliseconds
-        reading->valid = true;
         
-        // Update last reading
-        memcpy(&last_reading, reading, sizeof(dht11_reading_t));
-        last_read_time = esp_timer_get_time();
-        
-        ESP_LOGI(TAG, "Temperature: %.1f°C, Humidity: %.1f%%", 
-                 reading->temperature, reading->humidity);
+        // Apply datasheet-based validation
+        if (validate_dht11_reading(reading)) {
+            reading->valid = true;
+            
+            // Update last reading
+            memcpy(&last_reading, reading, sizeof(dht11_reading_t));
+            last_read_time = current_time;
+            
+            ESP_LOGI(TAG, "DHT11: %.1f°C, %.1f%%RH", 
+                     reading->temperature, reading->humidity);
+        } else {
+            reading->valid = false;
+            ESP_LOGW(TAG, "DHT11 reading failed validation");
+            ret = ESP_ERR_INVALID_RESPONSE;
+        }
     } else {
         reading->valid = false;
+        ESP_LOGW(TAG, "DHT11 read failed: %s", esp_err_to_name(ret));
     }
     
     return ret;
@@ -163,15 +206,25 @@ static void dht11_reading_task(void *pvParameters) {
         dht11_reading_t reading;
         esp_err_t ret = dht11_read(&reading);
 
-        if (ret == ESP_OK && reading.valid) {
+        // Track basic statistics for monitoring
+        total_reads++;
+        if (ret != ESP_OK || !reading.valid) {
+            failed_reads++;
+            ERROR_LOG_WARNING(TAG, ret, ERROR_CAT_SENSOR, "Failed to read DHT11");
+            // Add delay between retries on error
+            vTaskDelay(pdMS_TO_TICKS(2000));
+        } else {
             // Publish reading if connected
             if (envilog_mqtt_is_connected()) {
                 publish_reading(&reading);
             }
-        } else {
-            ERROR_LOG_WARNING(TAG, ret, ERROR_CAT_SENSOR, "Failed to read DHT11");
-            // Add delay between retries on error
-            vTaskDelay(pdMS_TO_TICKS(2000));
+        }
+        
+        // Log statistics periodically for monitoring
+        if (total_reads % 50 == 0 && total_reads > 0) {
+            float success_rate = (float)(total_reads - failed_reads) / total_reads * 100;
+            ESP_LOGI(TAG, "DHT11 stats: %lu total, %lu failed (%.1f%% success)", 
+                     total_reads, failed_reads, success_rate);
         }
         
         // Wait for next reading interval
@@ -182,6 +235,12 @@ static void dht11_reading_task(void *pvParameters) {
 esp_err_t dht11_start_reading(uint32_t read_interval_ms) {
     if (sensor_running) {
         return ESP_ERR_INVALID_STATE;
+    }
+
+    // Enforce minimum interval from datasheet
+    if (read_interval_ms < DHT11_MIN_INTERVAL_MS) {
+        ESP_LOGW(TAG, "Read interval too short, using minimum %dms", DHT11_MIN_INTERVAL_MS);
+        read_interval_ms = DHT11_MIN_INTERVAL_MS;
     }
 
     BaseType_t ret = xTaskCreate(
@@ -231,9 +290,18 @@ esp_err_t dht11_publish_diagnostics(void) {
         // Create JSON string for sensor data
         cJSON *root = cJSON_CreateObject();
         if (root) {
+            // Current sensor data
             cJSON_AddNumberToObject(root, "temperature", reading.temperature);
             cJSON_AddNumberToObject(root, "humidity", reading.humidity);
             cJSON_AddNumberToObject(root, "timestamp", reading.timestamp);
+            
+            // Include reliability statistics for monitoring
+            if (total_reads > 0) {
+                float success_rate = (float)(total_reads - failed_reads) / total_reads;
+                cJSON_AddNumberToObject(root, "success_rate", success_rate);
+                cJSON_AddNumberToObject(root, "total_readings", total_reads);
+                cJSON_AddNumberToObject(root, "failed_readings", failed_reads);
+            }
             
             char *json_str = cJSON_PrintUnformatted(root);
             if (json_str) {
