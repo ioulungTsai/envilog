@@ -8,6 +8,7 @@
 #include "system_manager.h"
 #include "freertos/task.h"
 #include "esp_cpu.h"
+#include "error_handler.h"
 
 #define MAX_MONITORED_TASKS 10
 #define STACK_INFO_PRINT_INTERVAL   60
@@ -166,7 +167,8 @@ static void system_monitor_task(void *pvParameters) {
                 }
 
                 default:
-                    ESP_LOGW(TAG, "Unknown command received: %d", cmd_msg.cmd);
+                    ERROR_LOG_WARNING(TAG, ESP_ERR_INVALID_ARG, ERROR_CAT_VALIDATION,
+                        "Unknown command received: %d", cmd_msg.cmd);
                     resp_msg.type = SYS_MONITOR_RESP_ERROR;
                     resp_msg.status = ESP_ERR_INVALID_ARG;
                     resp_msg.data = NULL;
@@ -184,7 +186,8 @@ static void system_monitor_task(void *pvParameters) {
         if (system_manager_load_system_config(&sys_config) == ESP_OK) {
             uint32_t free_heap = esp_get_free_heap_size();
             if (free_heap < sys_config.min_heap_threshold) {
-                ESP_LOGW(TAG, "Low heap memory: %lu bytes", free_heap);
+                ERROR_LOG_WARNING(TAG, ESP_ERR_NO_MEM, ERROR_CAT_SYSTEM,
+                    "Low heap memory: %lu bytes", free_heap);
                 xEventGroupSetBits(system_event_group, SYSTEM_EVENT_LOW_MEMORY);
             }
 
@@ -198,8 +201,9 @@ static void system_monitor_task(void *pvParameters) {
                     strncmp(task_name, "esp_timer", 9) != 0) // Skip ESP timer
                 {
                     if (monitored_tasks[i].stack_hwm < sys_config.stack_hwm_threshold) {
-                        ESP_LOGW(TAG, "Low stack for task %s: %u bytes, Threshold: %lu", 
-                                task_name, monitored_tasks[i].stack_hwm, sys_config.stack_hwm_threshold);
+                        ERROR_LOG_WARNING(TAG, ESP_ERR_NO_MEM, ERROR_CAT_SYSTEM,
+                            "Low stack for task %s: %u bytes, Threshold: %lu",
+                            task_name, monitored_tasks[i].stack_hwm, sys_config.stack_hwm_threshold);
                         xEventGroupSetBits(system_event_group, SYSTEM_EVENT_STACK_WARNING);
                     }
                 }
@@ -237,8 +241,9 @@ static void update_task_statistics(void) {
 static void check_task_health(void) {
     for (size_t i = 0; i < num_monitored_tasks; i++) {
         if (!is_task_healthy(&monitored_tasks[i])) {
-            ESP_LOGW(TAG, "Task %s health check failed", 
-                    monitored_tasks[i].status.pcTaskName);
+            ERROR_LOG_WARNING(TAG, ESP_FAIL, ERROR_CAT_SYSTEM,
+                "Task %s health check failed",
+                monitored_tasks[i].status.pcTaskName);
             xEventGroupSetBits(system_event_group, SYSTEM_EVENT_TASK_OVERRUN);
         }
     }
@@ -263,18 +268,20 @@ static bool is_task_healthy(const task_monitor_data_t *task_data) {
     // For regular tasks, check for unhealthy states
     if (task_data->status.eCurrentState == eDeleted || 
         task_data->status.eCurrentState >= eInvalid) {
-        ESP_LOGW(TAG, "Task %s in unhealthy state: %d", 
-                 task_data->status.pcTaskName,
-                 task_data->status.eCurrentState);
+        ERROR_LOG_WARNING(TAG, ESP_FAIL, ERROR_CAT_SYSTEM,
+            "Task %s in unhealthy state: %d",
+            task_data->status.pcTaskName,
+            task_data->status.eCurrentState);
         return false;
     }
 
     // Check if task has been active recently (only for non-system tasks)
     int64_t time_since_active = esp_timer_get_time() - task_data->last_active_time;
     if (time_since_active > (monitor_interval_ms * 3 * 1000)) {
-        ESP_LOGW(TAG, "Task %s inactive for too long: %lld ms", 
-                 task_data->status.pcTaskName,
-                 time_since_active / 1000);
+        ERROR_LOG_WARNING(TAG, ESP_ERR_TIMEOUT, ERROR_CAT_SYSTEM,
+            "Task %s inactive for too long: %lld ms",
+            task_data->status.pcTaskName,
+            time_since_active / 1000);
         return false;
     }
 
@@ -287,7 +294,8 @@ esp_err_t task_manager_init(void) {
     
     system_event_group = xEventGroupCreate();
     if (system_event_group == NULL) {
-        ESP_LOGE(TAG, "Failed to create system event group");
+        ERROR_LOG_ERROR(TAG, ESP_FAIL, ERROR_CAT_SYSTEM,
+            "Failed to create system event group");
         return ESP_FAIL;
     }
 
@@ -309,7 +317,8 @@ esp_err_t create_system_monitor_task(void) {
     );
 
     if (ret != pdPASS) {
-        ESP_LOGE(TAG, "Failed to create system monitor task");
+        ERROR_LOG_ERROR(TAG, ESP_FAIL, ERROR_CAT_SYSTEM,
+            "Failed to create system monitor task");
         return ESP_FAIL;
     }
 

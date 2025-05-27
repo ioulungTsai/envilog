@@ -8,6 +8,7 @@
 #include "rom/ets_sys.h"
 #include "envilog_mqtt.h"
 #include "cJSON.h"
+#include "error_handler.h"
 
 static const char *TAG = "dht11";
 static uint8_t dht_gpio;
@@ -21,7 +22,8 @@ static int wait_or_timeout(uint16_t microSeconds, int level) {
     int micros_ticks = 0;
     while(gpio_get_level(dht_gpio) == level) { 
         if(micros_ticks++ > microSeconds) {
-            ESP_LOGW(TAG, "Timeout waiting for level %d after %d microseconds", level, micros_ticks);
+            ERROR_LOG_WARNING(TAG, ESP_ERR_TIMEOUT, ERROR_CAT_SENSOR, 
+                 "Timeout waiting for level %d after %d microseconds", level, micros_ticks);
             return ESP_ERR_TIMEOUT;
         }
         ets_delay_us(1);
@@ -63,7 +65,7 @@ static esp_err_t read_raw_data(uint8_t data[5]) {
              
     // Verify checksum
     if(data[4] != ((data[0] + data[1] + data[2] + data[3]) & 0xFF)) {
-        ESP_LOGW(TAG, "Checksum failed");
+        ERROR_LOG_WARNING(TAG, ESP_ERR_INVALID_CRC, ERROR_CAT_SENSOR, "Checksum failed");
         return ESP_ERR_INVALID_CRC;
     }
     
@@ -110,7 +112,7 @@ esp_err_t dht11_init(uint8_t gpio_num) {
     
     esp_err_t ret = gpio_config(&io_conf);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to configure GPIO");
+        ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_HARDWARE, "Failed to configure GPIO");
         return ret;
     }
 
@@ -167,7 +169,7 @@ static void dht11_reading_task(void *pvParameters) {
                 publish_reading(&reading);
             }
         } else {
-            ESP_LOGW(TAG, "Failed to read DHT11: %s", esp_err_to_name(ret));
+            ERROR_LOG_WARNING(TAG, ret, ERROR_CAT_SENSOR, "Failed to read DHT11");
             // Add delay between retries on error
             vTaskDelay(pdMS_TO_TICKS(2000));
         }
@@ -192,7 +194,7 @@ esp_err_t dht11_start_reading(uint32_t read_interval_ms) {
     );
 
     if (ret != pdPASS) {
-        ESP_LOGE(TAG, "Failed to create DHT11 task");
+        ERROR_LOG_ERROR(TAG, ESP_FAIL, ERROR_CAT_SYSTEM, "Failed to create DHT11 task");
         return ESP_FAIL;
     }
 

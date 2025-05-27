@@ -15,4 +15,5 @@ idf_component_register(
                   "envilog_mqtt"
                   "system_manager"
                   "dht11_sensor"
+                  "error_handler"
 )

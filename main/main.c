@@ -9,17 +9,15 @@
 #include "nvs_flash.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-// #include "freertos/event_groups.h"
 #include "envilog_config.h"
 #include "task_manager.h"
 #include "network_manager.h"
 #include "system_monitor_msg.h"
 #include "http_server.h"
-// #include "esp_spiffs.h"
 #include "envilog_mqtt.h"
 #include "system_manager.h"
 #include "dht11_sensor.h"
-// #include "cJSON.h"
+#include "error_handler.h"
 
 static const char *TAG = "envilog";
 
@@ -79,11 +77,11 @@ void app_main(void) {
     ESP_LOGI(TAG, "Initializing DHT11 sensor...");
     ret = dht11_init(CONFIG_DHT11_GPIO);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to initialize DHT11: %s", esp_err_to_name(ret));
+        ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_SENSOR, "Failed to initialize DHT11");
     } else {
         ret = dht11_start_reading(CONFIG_DHT11_READ_INTERVAL);
         if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to start DHT11 readings: %s", esp_err_to_name(ret));
+            ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_SENSOR, "Failed to start DHT11 readings");
         } else {
             ESP_LOGI(TAG, "DHT11 sensor started successfully");
         }
@@ -92,14 +90,14 @@ void app_main(void) {
     ESP_LOGI(TAG, "Starting HTTP server...");
     ret = http_server_init_default();
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to start HTTP server: %s", esp_err_to_name(ret));
+        ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_COMMUNICATION, "Failed to start HTTP server");
         return;
     }
 
     ESP_LOGI(TAG, "Starting diagnostics system...");
     ret = system_manager_start_diagnostics(ENVILOG_DIAG_CHECK_INTERVAL_MS);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to start diagnostics: %s", esp_err_to_name(ret));
+        ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_SYSTEM, "Failed to start diagnostics");
         return;
     }
 

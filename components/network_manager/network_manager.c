@@ -7,7 +7,8 @@
 #include "envilog_config.h"
 #include "esp_timer.h"
 #include "esp_task_wdt.h"
-#include "system_manager.h" 
+#include "system_manager.h"
+#include "error_handler.h"
 
 static const char *TAG = "network_manager";
 
@@ -30,14 +31,14 @@ esp_err_t network_manager_init(void)
     network_config_t net_cfg;
     esp_err_t ret = system_manager_load_network_config(&net_cfg);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to load network config");
+        ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_CONFIG, "Failed to load network config");
         return ret;
     }
 
     // Create event group
     network_event_group = xEventGroupCreate();
     if (network_event_group == NULL) {
-        ESP_LOGE(TAG, "Failed to create event group");
+        ERROR_LOG_ERROR(TAG, ESP_FAIL, ERROR_CAT_SYSTEM, "Failed to create event group");
         return ESP_FAIL;
     }
 
@@ -69,7 +70,7 @@ esp_err_t network_manager_start(void)
                                 &network_task_handle);
 
     if (ret != pdPASS) {
-        ESP_LOGE(TAG, "Failed to create network task");
+        ERROR_LOG_ERROR(TAG, ESP_FAIL, ERROR_CAT_SYSTEM, "Failed to create network task");
         return ESP_FAIL;
     }
 
@@ -120,7 +121,7 @@ static void network_task(void *pvParameters)
             startup_time = esp_timer_get_time() / 1000;
         }
         if ((esp_timer_get_time() / 1000) - startup_time > 10000) {
-            ESP_LOGW(TAG, "Simulating network task hang...");
+            ERROR_LOG_WARNING(TAG, ESP_ERR_TIMEOUT, ERROR_CAT_SYSTEM, "Simulating network task hang...");
             vTaskDelay(pdMS_TO_TICKS(5000));
         }
         #endif
@@ -169,7 +170,8 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
                     esp_wifi_connect();
                     retry_count++;
                 } else if (retry_count == ENVILOG_WIFI_RETRY_NUM) {
-                    ESP_LOGW(TAG, "Failed after maximum retries, switching to periodic reconnection");
+                    ERROR_LOG_WARNING(TAG, ESP_ERR_WIFI_CONN, ERROR_CAT_NETWORK,
+                        "Failed after maximum retries, switching to periodic reconnection");
                     immediate_retry = false;  // Switch to periodic mode
                     retry_count++;  // Prevent repeated warnings
                 }
@@ -214,7 +216,7 @@ esp_err_t network_manager_update_config(void)
     network_config_t net_cfg;
     esp_err_t ret = system_manager_load_network_config(&net_cfg);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to load new network config");
+        ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_CONFIG, "Failed to load new network config");
         return ret;
     }
 
@@ -236,7 +238,7 @@ esp_err_t network_manager_update_config(void)
     // Apply new configuration
     ret = esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to set new WiFi config");
+        ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_NETWORK, "Failed to set new WiFi config");
         return ret;
     }
 

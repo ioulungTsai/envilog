@@ -9,6 +9,7 @@
 #include "task_manager.h"
 #include "cJSON.h"
 #include "dht11_sensor.h"
+#include "error_handler.h"
 
 static const char *TAG = "envilog_mqtt";
 
@@ -73,12 +74,14 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
                                 dht11_start_reading(new_interval);
                                 ESP_LOGI(TAG, "Updated sensor read interval to %lu ms", new_interval);
                             } else {
-                                ESP_LOGW(TAG, "Invalid interval value: %lu (must be between 2000-300000)", new_interval);
+                                ERROR_LOG_WARNING(TAG, ESP_ERR_INVALID_ARG, ERROR_CAT_VALIDATION,
+                                    "Invalid interval value: %lu (must be between 2000-300000)", new_interval);
                             }
                         }
                         cJSON_Delete(root);
                     } else {
-                        ESP_LOGW(TAG, "Failed to parse sensor config JSON");
+                        ERROR_LOG_WARNING(TAG, ESP_ERR_INVALID_ARG, ERROR_CAT_VALIDATION,
+                            "Failed to parse sensor config JSON");
                     }
                     free(data_str);
                 }
@@ -88,10 +91,10 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
        case MQTT_EVENT_ERROR:
            // Only log errors when WiFi is connected
            if (network_manager_is_connected()) {
-               ESP_LOGW(TAG, "MQTT Error occurred");
+               ERROR_LOG_WARNING(TAG, ESP_FAIL, ERROR_CAT_COMMUNICATION, "MQTT Error occurred");
                if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT) {
-                   ESP_LOGW(TAG, "Last error code reported from esp-tls: 0x%x", 
-                       event->error_handle->esp_tls_last_esp_err);
+                   ERROR_LOG_WARNING(TAG, event->error_handle->esp_tls_last_esp_err,
+                        ERROR_CAT_COMMUNICATION, "Last error code reported from esp-tls");
                }
            }
            xEventGroupSetBits(mqtt_event_group, ENVILOG_MQTT_ERROR_BIT);
@@ -127,7 +130,8 @@ static void mqtt_reconnect_task(void *pvParameters)
                         retry_count++;
                     }
                 } else if (retry_count == ENVILOG_WIFI_RETRY_NUM) {
-                    ESP_LOGW(TAG, "MQTT failed after maximum retries, switching to periodic reconnection");
+                    ERROR_LOG_WARNING(TAG, ESP_ERR_TIMEOUT, ERROR_CAT_COMMUNICATION,
+                        "MQTT failed after maximum retries, switching to periodic reconnection");
                     immediate_retry = false;
                     retry_count++;
                 }
@@ -148,13 +152,13 @@ esp_err_t envilog_mqtt_init(void)
     mqtt_config_t mqtt_cfg;
     esp_err_t ret = system_manager_load_mqtt_config(&mqtt_cfg);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to load MQTT config");
+        ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_CONFIG, "Failed to load MQTT config");
         return ret;
     }
 
     mqtt_event_group = xEventGroupCreate();
     if (mqtt_event_group == NULL) {
-        ESP_LOGE(TAG, "Failed to create event group");
+        ERROR_LOG_ERROR(TAG, ESP_FAIL, ERROR_CAT_SYSTEM, "Failed to create event group");
         return ESP_FAIL;
     }
 
@@ -184,7 +188,8 @@ esp_err_t envilog_mqtt_init(void)
 
     mqtt_client = esp_mqtt_client_init(&esp_mqtt_cfg);
     if (mqtt_client == NULL) {
-        ESP_LOGE(TAG, "Failed to initialize MQTT client");
+        ERROR_LOG_ERROR(TAG, ESP_FAIL, ERROR_CAT_COMMUNICATION,
+            "Failed to initialize MQTT client");
         return ESP_FAIL;
     }
 
@@ -229,7 +234,8 @@ esp_err_t envilog_mqtt_publish_status(const char *data, size_t len)
                                        0);   // Don't retain
 
     if (msg_id < 0) {
-        ESP_LOGW(TAG, "Failed to publish status update");
+        ERROR_LOG_WARNING(TAG, ESP_FAIL, ERROR_CAT_COMMUNICATION,
+            "Failed to publish status update");
         return ESP_FAIL;
     }
 
@@ -254,7 +260,8 @@ esp_err_t envilog_mqtt_publish_diagnostic(const char *type, const char *data, si
                                        0);   // Don't retain
 
     if (msg_id < 0) {
-        ESP_LOGW(TAG, "Failed to publish diagnostic data to topic %s", full_topic);
+        ERROR_LOG_WARNING(TAG, ESP_FAIL, ERROR_CAT_COMMUNICATION,
+            "Failed to publish diagnostic data to topic %s", full_topic);
         return ESP_FAIL;
     }
 
@@ -268,13 +275,15 @@ esp_err_t envilog_mqtt_update_config(void)
     mqtt_config_t mqtt_cfg;
     esp_err_t ret = system_manager_load_mqtt_config(&mqtt_cfg);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to load new MQTT config");
+        ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_CONFIG,
+            "Failed to load new MQTT config");
         return ret;
     }
 
     // Check client state
     if (mqtt_client == NULL) {
-        ESP_LOGE(TAG, "MQTT client not initialized");
+        ERROR_LOG_ERROR(TAG, ESP_ERR_INVALID_STATE, ERROR_CAT_SYSTEM,
+            "MQTT client not initialized");
         return ESP_ERR_INVALID_STATE;
     }
 
@@ -301,7 +310,8 @@ esp_err_t envilog_mqtt_update_config(void)
 
         mqtt_client = esp_mqtt_client_init(&esp_mqtt_cfg);
         if (mqtt_client == NULL) {
-            ESP_LOGE(TAG, "Failed to initialize MQTT client");
+            ERROR_LOG_ERROR(TAG, ESP_FAIL, ERROR_CAT_COMMUNICATION,
+                "Failed to initialize MQTT client");
             return ESP_FAIL;
         }
 

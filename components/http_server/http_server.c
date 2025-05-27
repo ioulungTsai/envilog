@@ -13,6 +13,7 @@
 #include <sys/stat.h>
 #include "dht11_sensor.h"
 #include "esp_spiffs.h"
+#include "error_handler.h"
 
 static const char *TAG = "http_server";
 static httpd_handle_t server = NULL;
@@ -41,11 +42,14 @@ static esp_err_t init_spiffs(void) {
     esp_err_t ret = esp_vfs_spiffs_register(&conf);
     if (ret != ESP_OK) {
         if (ret == ESP_FAIL) {
-            ESP_LOGE(TAG, "Failed to mount or format filesystem");
+            ERROR_LOG_ERROR(TAG, ESP_FAIL, ERROR_CAT_STORAGE,
+                "Failed to mount or format filesystem");
         } else if (ret == ESP_ERR_NOT_FOUND) {
-            ESP_LOGE(TAG, "Failed to find SPIFFS partition");
+            ERROR_LOG_ERROR(TAG, ESP_ERR_NOT_FOUND, ERROR_CAT_STORAGE,
+                "Failed to find SPIFFS partition");
         } else {
-            ESP_LOGE(TAG, "Failed to initialize SPIFFS (%s)", esp_err_to_name(ret));
+            ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_STORAGE,
+                "Failed to initialize SPIFFS");
         }
         return ret;
     }
@@ -53,7 +57,8 @@ static esp_err_t init_spiffs(void) {
     size_t total = 0, used = 0;
     ret = esp_spiffs_info(NULL, &total, &used);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to get SPIFFS partition information (%s)", esp_err_to_name(ret));
+        ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_STORAGE,
+            "Failed to get SPIFFS partition information");
         return ret;
     }
 
@@ -385,7 +390,8 @@ static esp_err_t static_file_handler(httpd_req_t *req)
     // Build full filepath
     int ret = snprintf(filepath, sizeof(filepath), "/www%s", filename);
     if (ret < 0 || ret >= sizeof(filepath)) {
-        ESP_LOGE(TAG, "Filepath buffer too small");
+        ERROR_LOG_ERROR(TAG, ESP_ERR_NO_MEM, ERROR_CAT_SYSTEM,
+            "Filepath buffer too small");
         httpd_resp_send_404(req);
         return ESP_FAIL;
     }
@@ -393,14 +399,16 @@ static esp_err_t static_file_handler(httpd_req_t *req)
     ESP_LOGI(TAG, "Trying to serve file: %s", filepath);
 
     if (stat(filepath, &file_stat) == -1) {
-        ESP_LOGE(TAG, "Failed to stat file: %s", filepath);
+        ERROR_LOG_ERROR(TAG, ESP_FAIL, ERROR_CAT_STORAGE,
+            "Failed to stat file: %s", filepath);
         httpd_resp_send_404(req);
         return ESP_FAIL;
     }
 
     fd = fopen(filepath, "r");
     if (!fd) {
-        ESP_LOGE(TAG, "Failed to open file: %s", filepath);
+        ERROR_LOG_ERROR(TAG, ESP_FAIL, ERROR_CAT_STORAGE,
+            "Failed to open file: %s", filepath);
         httpd_resp_send_404(req);
         return ESP_FAIL;
     }
@@ -419,7 +427,8 @@ static esp_err_t static_file_handler(httpd_req_t *req)
     
     char *chunk = malloc(HTTP_CHUNK_SIZE);
     if (!chunk) {
-        ESP_LOGE(TAG, "Memory allocation failed");
+        ERROR_LOG_ERROR(TAG, ESP_ERR_NO_MEM, ERROR_CAT_SYSTEM,
+            "Memory allocation failed");
         fclose(fd);
         httpd_resp_send_500(req);
         return ESP_FAIL;
@@ -432,7 +441,8 @@ static esp_err_t static_file_handler(httpd_req_t *req)
             if (httpd_resp_send_chunk(req, chunk, chunksize) != ESP_OK) {
                 free(chunk);
                 fclose(fd);
-                ESP_LOGE(TAG, "File sending failed!");
+                ERROR_LOG_ERROR(TAG, ESP_FAIL, ERROR_CAT_COMMUNICATION, 
+                    "File sending failed!");
                 httpd_resp_send_500(req);
                 return ESP_FAIL;
             }
@@ -449,7 +459,8 @@ static esp_err_t static_file_handler(httpd_req_t *req)
 esp_err_t http_server_init(const http_server_config_t *config)
 {
     if (server) {
-        ESP_LOGW(TAG, "HTTP server already running");
+        ERROR_LOG_WARNING(TAG, ESP_ERR_INVALID_STATE, ERROR_CAT_SYSTEM,
+            "HTTP server already running");
         return ESP_ERR_INVALID_STATE;
     }
 
@@ -472,7 +483,8 @@ esp_err_t http_server_init(const http_server_config_t *config)
     ESP_LOGI(TAG, "Starting HTTP server on port: %d", config->port);
     ret = httpd_start(&server, &http_config);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to start HTTP server: %s", esp_err_to_name(ret));
+        ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_COMMUNICATION,
+            "Failed to start HTTP server");
         return ret;
     }
 
@@ -480,7 +492,8 @@ esp_err_t http_server_init(const http_server_config_t *config)
     for (size_t i = 0; i < sizeof(uri_handlers) / sizeof(uri_handlers[0]); i++) {
         ESP_LOGI(TAG, "Registering URI handler: %s", uri_handlers[i].uri);
         if (httpd_register_uri_handler(server, &uri_handlers[i]) != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to register %s handler", uri_handlers[i].uri);
+            ERROR_LOG_ERROR(TAG, ESP_FAIL, ERROR_CAT_SYSTEM,
+                "Failed to register %s handler", uri_handlers[i].uri);
             http_server_stop();
             return ESP_FAIL;
         }

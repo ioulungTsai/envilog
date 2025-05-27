@@ -16,6 +16,7 @@
 #include "esp_spiffs.h"
 #include "dht11_sensor.h"
 #include "envilog_mqtt.h"
+#include "error_handler.h"
 
 static const char *TAG = "system_manager";
 static nvs_handle_t nvs_config_handle;
@@ -46,20 +47,20 @@ esp_err_t system_manager_init(void)
     temperature_sensor_config_t temp_sensor_config = TEMPERATURE_SENSOR_CONFIG_DEFAULT(-10, 80);
     ret = temperature_sensor_install(&temp_sensor_config, &temp_sensor);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to install temperature sensor: %s", esp_err_to_name(ret));
+        ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_HARDWARE, "Failed to install temperature sensor");
         return ret;
     }
     
     ret = temperature_sensor_enable(temp_sensor);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to enable temperature sensor: %s", esp_err_to_name(ret));
+        ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_HARDWARE, "Failed to enable temperature sensor");
         return ret;
     }
 
     // Open NVS handle
     ret = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs_config_handle);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Error opening NVS handle: %s", esp_err_to_name(ret));
+        ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_STORAGE, "Error opening NVS handle");
         return ret;
     }
 
@@ -91,21 +92,21 @@ esp_err_t system_manager_init(void)
     if (system_manager_load_network_config(NULL) != ESP_OK) {
         ret = system_manager_save_network_config(&net_cfg);
         if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to save default network config");
+            ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_CONFIG, "Failed to save default network config");
         }
     }
 
     if (system_manager_load_mqtt_config(NULL) != ESP_OK) {
         ret = system_manager_save_mqtt_config(&mqtt_cfg);
         if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to save default MQTT config");
+            ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_CONFIG, "Failed to save default MQTT config");
         }
     }
 
     if (system_manager_load_system_config(NULL) != ESP_OK) {
         ret = system_manager_save_system_config(&sys_cfg);
         if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to save default system config");
+            ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_CONFIG, "Failed to save default system config");
         }
     }
 
@@ -315,7 +316,8 @@ void system_manager_print_diagnostics(void) {
     if (esp_spiffs_info(NULL, &total, &used) == ESP_OK) {
         ESP_LOGI(TAG, "- SPIFFS: %d KB used of %d KB", used/1024, total/1024);
     } else {
-        ESP_LOGW(TAG, "- SPIFFS: Failed to get partition information");
+        ERROR_LOG_WARNING(TAG, ESP_FAIL, ERROR_CAT_STORAGE, 
+            "SPIFFS: Failed to get partition information");
     }
 
     // Add task manager diagnostics
@@ -348,14 +350,14 @@ esp_err_t system_manager_start_diagnostics(uint32_t interval_ms) {
     
     esp_err_t ret = esp_timer_create(&timer_args, &diagnostic_timer);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to create diagnostic timer: %s", esp_err_to_name(ret));
+        ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_SYSTEM, "Failed to create diagnostic timer");
         return ret;
     }
 
     // Start periodic diagnostics
     ret = esp_timer_start_periodic(diagnostic_timer, interval_ms * 1000);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to start diagnostic timer: %s", esp_err_to_name(ret));
+        ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_SYSTEM, "Failed to start diagnostic timer");
         return ret;
     }
     

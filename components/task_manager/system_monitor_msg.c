@@ -1,5 +1,6 @@
 #include "system_monitor_msg.h"
 #include "esp_log.h"
+#include "error_handler.h"
 
 static const char *TAG = "sys_monitor_msg";
 
@@ -12,7 +13,8 @@ esp_err_t system_monitor_queue_init(void) {
     system_monitor_cmd_queue = xQueueCreate(SYS_MONITOR_CMD_QUEUE_LEN, 
                                           sizeof(sys_monitor_cmd_msg_t));
     if (system_monitor_cmd_queue == NULL) {
-        ESP_LOGE(TAG, "Failed to create command queue");
+        ERROR_LOG_ERROR(TAG, ESP_ERR_NO_MEM, ERROR_CAT_SYSTEM,
+            "Failed to create command queue");
         return ESP_ERR_NO_MEM;
     }
 
@@ -20,7 +22,8 @@ esp_err_t system_monitor_queue_init(void) {
     system_monitor_resp_queue = xQueueCreate(SYS_MONITOR_RESP_QUEUE_LEN,
                                            sizeof(sys_monitor_resp_msg_t));
     if (system_monitor_resp_queue == NULL) {
-        ESP_LOGE(TAG, "Failed to create response queue");
+        ERROR_LOG_ERROR(TAG, ESP_ERR_NO_MEM, ERROR_CAT_SYSTEM,
+            "Failed to create response queue");
         vQueueDelete(system_monitor_cmd_queue);  // Clean up if response queue creation fails
         system_monitor_cmd_queue = NULL;
         return ESP_ERR_NO_MEM;
@@ -51,12 +54,14 @@ esp_err_t system_monitor_send_command(sys_monitor_cmd_msg_t* cmd, TickType_t wai
     }
 
     if (system_monitor_cmd_queue == NULL) {
-        ESP_LOGE(TAG, "Command queue not initialized");
+        ERROR_LOG_ERROR(TAG, ESP_ERR_INVALID_STATE, ERROR_CAT_SYSTEM,
+            "Command queue not initialized");
         return ESP_ERR_INVALID_STATE;
     }
 
     if (xQueueSend(system_monitor_cmd_queue, cmd, wait_ticks) != pdPASS) {
-        ESP_LOGW(TAG, "Failed to send command to queue (timeout)");
+        ERROR_LOG_WARNING(TAG, ESP_ERR_TIMEOUT, ERROR_CAT_SYSTEM,
+            "Failed to send command to queue (timeout)");
         return ESP_ERR_TIMEOUT;
     }
 
@@ -69,12 +74,14 @@ esp_err_t system_monitor_get_response(sys_monitor_resp_msg_t* resp, TickType_t w
     }
 
     if (system_monitor_resp_queue == NULL) {
-        ESP_LOGE(TAG, "Response queue not initialized");
+        ERROR_LOG_ERROR(TAG, ESP_ERR_INVALID_STATE, ERROR_CAT_SYSTEM,
+            "Response queue not initialized");
         return ESP_ERR_INVALID_STATE;
     }
 
     if (xQueueReceive(system_monitor_resp_queue, resp, wait_ticks) != pdPASS) {
-        ESP_LOGW(TAG, "No response received (timeout)");
+        ERROR_LOG_WARNING(TAG, ESP_ERR_TIMEOUT, ERROR_CAT_SYSTEM,
+            "No response received (timeout)");
         return ESP_ERR_TIMEOUT;
     }
 
