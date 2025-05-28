@@ -11,7 +11,7 @@ idf_component_register(
         "network_manager"
         "envilog_config"
         "vfs"
-        "dht11_sensor"
+        "data_manager"
         "error_handler"
 
 )

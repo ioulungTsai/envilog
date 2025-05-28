@@ -3,6 +3,7 @@
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
+#include "data_manager.h"
 
 // EnviLog MQTT event group bits
 #define ENVILOG_MQTT_CONNECTED_BIT     BIT0
@@ -71,3 +72,10 @@ esp_err_t envilog_mqtt_publish_diagnostic(const char *type, const char *data, si
  * @return esp_err_t ESP_OK on success
  */
 esp_err_t envilog_mqtt_update_config(void);
+
+/**
+ * @brief Get MQTT sensor data callback for data manager
+ * 
+ * @return sensor_data_callback_t Callback function for sensor data
+ */
+sensor_data_callback_t envilog_mqtt_get_sensor_callback(void);

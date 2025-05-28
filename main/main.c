@@ -18,6 +18,7 @@
 #include "system_manager.h"
 #include "dht11_sensor.h"
 #include "error_handler.h"
+#include "data_manager.h"
 
 static const char *TAG = "envilog";
 
@@ -72,6 +73,20 @@ void app_main(void) {
     ESP_ERROR_CHECK(envilog_mqtt_init());
     ESP_ERROR_CHECK(envilog_mqtt_start());
     ESP_LOGI(TAG, "MQTT client started");
+
+    // Initialize Data Manager with MQTT callback
+    ESP_LOGI(TAG, "Initializing Data Manager...");
+    data_manager_config_t data_config = {
+        .mqtt_callback = envilog_mqtt_get_sensor_callback(),
+        .http_getter = NULL  // HTTP uses direct API calls
+    };
+
+    ret = data_manager_init(&data_config);
+    
+    if (ret != ESP_OK) {
+        ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_SYSTEM, "Failed to initialize Data Manager");
+        return;
+    }
 
     // Initialize DHT11 sensor
     ESP_LOGI(TAG, "Initializing DHT11 sensor...");

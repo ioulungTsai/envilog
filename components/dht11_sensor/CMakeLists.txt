@@ -12,4 +12,5 @@ idf_component_register(
             "json" 
             "esp_hw_support"
             "error_handler"
+            "data_manager"
 )

@@ -11,7 +11,7 @@
 #include "network_manager.h"
 #include "system_manager.h"
 #include <sys/stat.h>
-#include "dht11_sensor.h"
+#include "data_manager.h"
 #include "esp_spiffs.h"
 #include "error_handler.h"
 
@@ -516,7 +516,7 @@ esp_err_t http_server_stop(void)
 
 static esp_err_t sensor_data_handler(httpd_req_t *req) {
     dht11_reading_t reading;
-    esp_err_t ret = dht11_get_last_reading(&reading);
+    esp_err_t ret = data_manager_get_latest_data("dht11", &reading);
     
     cJSON *root = cJSON_CreateObject();
     if (!root) {

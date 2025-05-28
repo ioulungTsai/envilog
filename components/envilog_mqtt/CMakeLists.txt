@@ -8,6 +8,6 @@ idf_component_register(
              "envilog_config"
              "system_manager"
              "json"
-             "dht11_sensor"
              "error_handler"
+             "data_manager"
 )

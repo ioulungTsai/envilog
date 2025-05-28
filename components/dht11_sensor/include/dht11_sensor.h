@@ -50,10 +50,3 @@ esp_err_t dht11_stop_reading(void);
  * @return esp_err_t ESP_OK on success
  */
 esp_err_t dht11_get_last_reading(dht11_reading_t *reading);
-
-/**
- * @brief Publish sensor diagnostics to MQTT
- * 
- * @return esp_err_t ESP_OK on success
- */
-esp_err_t dht11_publish_diagnostics(void);

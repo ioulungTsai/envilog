@@ -9,6 +9,7 @@
 #include "envilog_mqtt.h"
 #include "cJSON.h"
 #include "error_handler.h"
+#include "data_manager.h"
 
 static const char *TAG = "dht11";
 
@@ -108,24 +109,11 @@ static esp_err_t publish_reading(const dht11_reading_t *reading) {
         return ESP_FAIL;
     }
 
-    cJSON *root = cJSON_CreateObject();
-    if (root == NULL) {
-        return ESP_ERR_NO_MEM;
+    // Send to data manager instead of MQTT directly
+    esp_err_t ret = data_manager_publish_sensor_data("dht11", reading);
+    if (ret != ESP_OK) {
+        ERROR_LOG_WARNING(TAG, ret, ERROR_CAT_SENSOR, "Failed to publish sensor data");
     }
-
-    cJSON_AddNumberToObject(root, "temperature", reading->temperature);
-    cJSON_AddNumberToObject(root, "humidity", reading->humidity);
-    cJSON_AddNumberToObject(root, "timestamp", reading->timestamp);
-
-    char *json_str = cJSON_PrintUnformatted(root);
-    cJSON_Delete(root);
-
-    if (json_str == NULL) {
-        return ESP_ERR_NO_MEM;
-    }
-
-    esp_err_t ret = envilog_mqtt_publish_diagnostic("dht11", json_str, strlen(json_str));
-    free(json_str);
 
     return ret;
 }
@@ -281,39 +269,5 @@ esp_err_t dht11_get_last_reading(dht11_reading_t *reading) {
     }
 
     memcpy(reading, &last_reading, sizeof(dht11_reading_t));
-    return ESP_OK;
-}
-
-esp_err_t dht11_publish_diagnostics(void) {
-    dht11_reading_t reading;
-    if (dht11_get_last_reading(&reading) == ESP_OK && reading.valid) {
-        // Create JSON string for sensor data
-        cJSON *root = cJSON_CreateObject();
-        if (root) {
-            // Current sensor data
-            cJSON_AddNumberToObject(root, "temperature", reading.temperature);
-            cJSON_AddNumberToObject(root, "humidity", reading.humidity);
-            cJSON_AddNumberToObject(root, "timestamp", reading.timestamp);
-            
-            // Include reliability statistics for monitoring
-            if (total_reads > 0) {
-                float success_rate = (float)(total_reads - failed_reads) / total_reads;
-                cJSON_AddNumberToObject(root, "success_rate", success_rate);
-                cJSON_AddNumberToObject(root, "total_readings", total_reads);
-                cJSON_AddNumberToObject(root, "failed_readings", failed_reads);
-            }
-            
-            char *json_str = cJSON_PrintUnformatted(root);
-            if (json_str) {
-                // Publish to MQTT if connected
-                if (envilog_mqtt_is_connected()) {
-                    envilog_mqtt_publish_diagnostic("sensors/dht11", json_str, strlen(json_str));
-                }
-                free(json_str);
-            }
-            cJSON_Delete(root);
-        }
-    }
-    
     return ESP_OK;
 }

@@ -10,6 +10,7 @@
 #include "cJSON.h"
 #include "dht11_sensor.h"
 #include "error_handler.h"
+#include "data_manager.h"
 
 static const char *TAG = "envilog_mqtt";
 
@@ -143,6 +144,35 @@ static void mqtt_reconnect_task(void *pvParameters)
         was_connected = is_connected;
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
+}
+
+// Callback function for Data Manager to send sensor data to MQTT
+static esp_err_t mqtt_sensor_data_callback(const dht11_reading_t *reading) {
+    if (!reading || !reading->valid) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    // Create JSON for MQTT (moved from DHT11)
+    cJSON *root = cJSON_CreateObject();
+    if (root == NULL) {
+        return ESP_ERR_NO_MEM;
+    }
+
+    cJSON_AddNumberToObject(root, "temperature", reading->temperature);
+    cJSON_AddNumberToObject(root, "humidity", reading->humidity);
+    cJSON_AddNumberToObject(root, "timestamp", reading->timestamp);
+
+    char *json_str = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+
+    if (json_str == NULL) {
+        return ESP_ERR_NO_MEM;
+    }
+
+    esp_err_t ret = envilog_mqtt_publish_diagnostic("dht11", json_str, strlen(json_str));
+    free(json_str);
+
+    return ret;
 }
 
 esp_err_t envilog_mqtt_init(void)
@@ -325,4 +355,8 @@ esp_err_t envilog_mqtt_update_config(void)
 
     ESP_LOGI(TAG, "MQTT configuration updated");
     return ESP_OK;
+}
+
+sensor_data_callback_t envilog_mqtt_get_sensor_callback(void) {
+    return mqtt_sensor_data_callback;
 }

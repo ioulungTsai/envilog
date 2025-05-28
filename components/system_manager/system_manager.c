@@ -14,7 +14,6 @@
 #include "esp_mac.h"
 #include "driver/temperature_sensor.h"
 #include "esp_spiffs.h"
-#include "dht11_sensor.h"
 #include "envilog_mqtt.h"
 #include "error_handler.h"
 
@@ -290,10 +289,8 @@ static void system_manager_diagnostic_callback(void* arg) {
     // Print diagnostics
     system_manager_print_diagnostics();
     
-    // Publish sensor diagnostics if MQTT is connected
-    if (envilog_mqtt_is_connected()) {
-        dht11_publish_diagnostics();
-    }
+    // Note: Sensor diagnostics now handled through data_manager
+    // No direct DHT11 coupling needed here
 }
 
 void system_manager_print_diagnostics(void) {
