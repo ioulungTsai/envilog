@@ -34,14 +34,16 @@ static uint32_t failed_reads = 0;
 static bool validate_dht11_reading(const dht11_reading_t *reading) {
     // Validate temperature range from datasheet
     if (reading->temperature < DHT11_TEMP_MIN || reading->temperature > DHT11_TEMP_MAX) {
-        ESP_LOGW(TAG, "Temperature out of range: %.1f°C (valid: %d-%d°C)", 
+        ERROR_LOG_WARNING(TAG, ESP_ERR_INVALID_RESPONSE, ERROR_CAT_VALIDATION, 
+                 "Temperature out of range: %.1f°C (valid: %d-%d°C)", 
                  reading->temperature, DHT11_TEMP_MIN, DHT11_TEMP_MAX);
         return false;
     }
     
     // Validate humidity range from datasheet
     if (reading->humidity < DHT11_HUM_MIN || reading->humidity > DHT11_HUM_MAX) {
-        ESP_LOGW(TAG, "Humidity out of range: %.1f%% (valid: %d-%d%%)", 
+        ERROR_LOG_WARNING(TAG, ESP_ERR_INVALID_RESPONSE, ERROR_CAT_VALIDATION, 
+                 "Humidity out of range: %.1f%% (valid: %d-%d%%)", 
                  reading->humidity, DHT11_HUM_MIN, DHT11_HUM_MAX);
         return false;
     }
@@ -174,12 +176,13 @@ esp_err_t dht11_read(dht11_reading_t *reading) {
                      reading->temperature, reading->humidity);
         } else {
             reading->valid = false;
-            ESP_LOGW(TAG, "DHT11 reading failed validation");
+            ERROR_LOG_WARNING(TAG, ESP_ERR_INVALID_RESPONSE, ERROR_CAT_VALIDATION,
+                "DHT11 reading failed validation");
             ret = ESP_ERR_INVALID_RESPONSE;
         }
     } else {
         reading->valid = false;
-        ESP_LOGW(TAG, "DHT11 read failed: %s", esp_err_to_name(ret));
+        ERROR_LOG_WARNING(TAG, ret, ERROR_CAT_SENSOR, "DHT11 read failed");
     }
     
     return ret;
@@ -227,7 +230,8 @@ esp_err_t dht11_start_reading(uint32_t read_interval_ms) {
 
     // Enforce minimum interval from datasheet
     if (read_interval_ms < DHT11_MIN_INTERVAL_MS) {
-        ESP_LOGW(TAG, "Read interval too short, using minimum %dms", DHT11_MIN_INTERVAL_MS);
+        ERROR_LOG_WARNING(TAG, ESP_ERR_INVALID_ARG, ERROR_CAT_VALIDATION, 
+                 "Read interval too short, using minimum %dms", DHT11_MIN_INTERVAL_MS);
         read_interval_ms = DHT11_MIN_INTERVAL_MS;
     }
 
