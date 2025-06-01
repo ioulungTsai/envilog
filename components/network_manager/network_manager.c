@@ -11,6 +11,9 @@
 #include "error_handler.h"
 #include "esp_mac.h"
 
+#define EXTENDED_RETRY_COUNT      3       // Extended retries after fast phase
+#define EXTENDED_RETRY_INTERVAL   30000   // 30 seconds between extended retries
+
 static const char *TAG = "network_manager";
 
 // Network manager state
@@ -22,6 +25,9 @@ static esp_netif_t *sta_netif = NULL;
 static esp_netif_t *ap_netif = NULL;
 static network_mode_t current_mode = NETWORK_MODE_STATION;
 static bool is_provisioned = false;
+static int extended_retry_count = 0;
+static bool in_extended_retry_phase = false;
+static int64_t last_extended_retry_time = 0;
 
 // Forward declarations
 static void network_task(void *pvParameters);
@@ -96,42 +102,61 @@ esp_err_t network_manager_start(void)
 
 static void network_task(void *pvParameters)
 {
-    ESP_LOGI(TAG, "Network task starting with dual-mode support");
+    ESP_LOGI(TAG, "Network task starting with AP fallback support");
 
     // Subscribe to WDT after WiFi init
     ESP_ERROR_CHECK(esp_task_wdt_add(NULL));
 
-    // TEMPORARY: Force AP mode for testing
-    ESP_LOGI(TAG, "TESTING: Forcing AP mode");
-    current_mode = NETWORK_MODE_AP;
-    configure_ap_mode();
-
     // Decide initial mode based on provisioning status
-    // if (is_provisioned) {
-    //     ESP_LOGI(TAG, "Starting in Station mode (credentials found)");
-    //     current_mode = NETWORK_MODE_STATION;
-    //     configure_station_mode();
-    // } else {
-    //     ESP_LOGI(TAG, "Starting in AP mode (no credentials)");
-    //     current_mode = NETWORK_MODE_AP;
-    //     configure_ap_mode();
-    // }
-
-    // Rest of your existing network_task logic...
-    const TickType_t retry_interval = pdMS_TO_TICKS(30000);
+    if (is_provisioned) {
+        ESP_LOGI(TAG, "Starting in Station mode (credentials found)");
+        current_mode = NETWORK_MODE_STATION;
+        configure_station_mode();
+    } else {
+        ESP_LOGI(TAG, "Starting in AP mode (no credentials)");
+        current_mode = NETWORK_MODE_AP;
+        configure_ap_mode();
+    }
 
     while (1) {
         ESP_ERROR_CHECK(esp_task_wdt_reset());
 
-        // Your existing retry logic here (only for Station mode)
-        if (current_mode == NETWORK_MODE_STATION) {
+        // Handle extended retry phase with proper timing
+        if (current_mode == NETWORK_MODE_STATION && in_extended_retry_phase) {
+            EventBits_t bits = xEventGroupGetBits(network_event_group);
+            if (!(bits & NETWORK_EVENT_WIFI_CONNECTED)) {
+                int64_t current_time = esp_timer_get_time();
+                
+                if (extended_retry_count < EXTENDED_RETRY_COUNT) {
+                    // Check if enough time has passed since last retry
+                    if (current_time - last_extended_retry_time > (EXTENDED_RETRY_INTERVAL * 1000)) {
+                        extended_retry_count++;
+                        ESP_LOGI(TAG, "Extended retry connecting to AP (%d/%d)", 
+                                 extended_retry_count, EXTENDED_RETRY_COUNT);
+                        esp_wifi_connect();
+                        last_extended_retry_time = current_time;
+                    }
+                } else {
+                    // Extended retries exhausted - switch to AP mode
+                    ESP_LOGW(TAG, "All connection attempts failed, switching to AP fallback mode");
+                    in_extended_retry_phase = false;
+                    
+                    esp_wifi_stop();
+                    vTaskDelay(pdMS_TO_TICKS(100));
+                    network_manager_start_ap_mode();
+                }
+            }
+        }
+
+        // Periodic reconnection logic (only when not in extended retry phase)
+        if (current_mode == NETWORK_MODE_STATION && !in_extended_retry_phase) {
             EventBits_t bits = xEventGroupGetBits(network_event_group);
             if (!(bits & NETWORK_EVENT_WIFI_CONNECTED) && !immediate_retry) {
                 ESP_LOGI(TAG, "Attempting periodic reconnection");
                 esp_wifi_connect();
 
                 const TickType_t wdt_feed_interval = pdMS_TO_TICKS(2000);
-                TickType_t remaining = retry_interval;
+                TickType_t remaining = pdMS_TO_TICKS(30000);
                 while (remaining > 0) {
                     TickType_t delay_time = (remaining > wdt_feed_interval) ? 
                                                 wdt_feed_interval : remaining;
@@ -162,16 +187,19 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
 
                 if (current_mode == NETWORK_MODE_STATION) {
                     if (immediate_retry && retry_count < ENVILOG_WIFI_RETRY_NUM) {
-                        ESP_LOGI(TAG, "Retry connecting to AP (%d/%d)", 
+                        ESP_LOGI(TAG, "Fast retry connecting to AP (%d/%d)", 
                                 retry_count + 1, ENVILOG_WIFI_RETRY_NUM);
                         esp_wifi_connect();
                         retry_count++;
-                    } else if (retry_count == ENVILOG_WIFI_RETRY_NUM) {
-                        ERROR_LOG_WARNING(TAG, ESP_ERR_WIFI_CONN, ERROR_CAT_NETWORK,
-                            "Failed after maximum retries, switching to periodic reconnection");
+                    } else if (retry_count == ENVILOG_WIFI_RETRY_NUM && !in_extended_retry_phase) {
+                        // CRITICAL FIX: Only start extended retry phase once
+                        ESP_LOGI(TAG, "Fast retries exhausted, starting extended retry phase");
                         immediate_retry = false;
-                        retry_count++;
+                        in_extended_retry_phase = true;
+                        extended_retry_count = 0;
+                        last_extended_retry_time = esp_timer_get_time();
                     }
+                    // Ignore subsequent disconnects when already in extended retry phase
                 }
                 break;
             
@@ -215,8 +243,14 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
                 xEventGroupSetBits(network_event_group, NETWORK_EVENT_WIFI_CONNECTED);
                 xEventGroupClearBits(network_event_group, NETWORK_EVENT_WIFI_DISCONNECTED);
                 
+                // Reset all retry state on successful connection
                 retry_count = 0;
+                extended_retry_count = 0;
                 immediate_retry = true;
+                in_extended_retry_phase = false;
+                last_extended_retry_time = 0;
+                
+                ESP_LOGI(TAG, "Connection successful - all retry state reset");
                 break;
             }
 
@@ -246,6 +280,11 @@ esp_err_t network_manager_get_rssi(int8_t *rssi)
 bool network_manager_is_connected(void)
 {
     return (xEventGroupGetBits(network_event_group) & NETWORK_EVENT_WIFI_CONNECTED) != 0;
+}
+
+EventGroupHandle_t network_manager_get_event_group(void)
+{
+    return network_event_group;
 }
 
 // Handle configuration updates
