@@ -9,6 +9,30 @@
 <body>
     <div class="dashboard">
         <h1>EnviLog Dashboard</h1>
+        
+        <!-- Network Mode Status Card -->
+        <div class="card mode-status" id="mode-status">
+            <h2>Network Mode</h2>
+            <div class="mode-indicator">
+                <span class="mode-badge" id="mode-badge">Unknown</span>
+                <span class="mode-details" id="mode-details">Checking...</span>
+            </div>
+            <div class="connection-status" id="connection-status"></div>
+            
+            <!-- Mode Control Buttons -->
+            <div class="mode-controls" id="mode-controls">
+                <button type="button" id="switch-to-ap-btn" class="mode-btn secondary" style="display: none;">
+                    Switch to AP Mode
+                </button>
+                <button type="button" id="switch-to-station-btn" class="mode-btn primary" style="display: none;">
+                    Connect to WiFi
+                </button>
+                <div class="mode-help" id="mode-help" style="display: none;">
+                    <small>Configure WiFi settings below, then click "Connect to WiFi"</small>
+                </div>
+            </div>
+        </div>
+
         <div class="status-grid">
             <!-- System Info Card -->
             <div class="card" id="system-info">
@@ -22,18 +46,24 @@
                     <span id="uptime">Loading...</span>
                 </div>
             </div>
+
             <!-- Network Info Card -->
             <div class="card" id="network-info">
-                <h2>Network Status</h2>
+                <h2>Network Details</h2>
                 <div class="status-item">
-                    <span>WiFi Status:</span>
-                    <span id="wifi-status">Loading...</span>
+                    <span>IP Address:</span>
+                    <span id="ip-address">Loading...</span>
                 </div>
-                <div class="status-item">
-                    <span>RSSI:</span>
-                    <span id="rssi">Loading...</span>
+                <div class="status-item" id="sta-info" style="display: none;">
+                    <span>WiFi SSID:</span>
+                    <span id="wifi-ssid">-</span>
+                </div>
+                <div class="status-item" id="rssi-info" style="display: none;">
+                    <span>Signal Strength:</span>
+                    <span id="rssi">-</span>
                 </div>
             </div>
+
             <!-- Sensor Data Card -->
             <div class="card" id="sensor-info">
                 <h2>DHT11 Sensor</h2>
@@ -48,21 +78,24 @@
             </div>
         </div>
 
-        <!-- Essential Configuration Section -->
+        <!-- Configuration Section -->
         <div class="config-section">
             <!-- Network Configuration -->
             <div class="card">
-                <h3>Network Settings</h3>
+                <h3>WiFi Configuration</h3>
+                <div class="config-info" id="config-info">
+                    <p class="info-text">Configure your WiFi settings below. Changes will be applied based on the current network mode.</p>
+                </div>
                 <form id="network-config-form" class="config-form">
                     <div class="form-group">
                         <label for="wifi-ssid">WiFi SSID:</label>
-                        <input type="text" id="wifi-ssid" name="wifi_ssid">
+                        <input type="text" id="wifi-ssid-input" name="wifi_ssid" placeholder="Enter WiFi network name">
                     </div>
                     <div class="form-group">
                         <label for="wifi-password">WiFi Password:</label>
-                        <input type="password" id="wifi-password" name="wifi_password">
+                        <input type="password" id="wifi-password-input" name="wifi_password" placeholder="Enter WiFi password">
                     </div>
-                    <button type="submit">Save Network Settings</button>
+                    <button type="submit" id="save-wifi-btn">Save WiFi Settings</button>
                 </form>
             </div>
 
@@ -72,7 +105,7 @@
                 <form id="mqtt-config-form" class="config-form">
                     <div class="form-group">
                         <label for="broker-url">Broker URL:</label>
-                        <input type="text" id="broker-url" name="broker_url">
+                        <input type="text" id="broker-url" name="broker_url" placeholder="mqtt://broker.example.com">
                     </div>
                     <button type="submit">Save MQTT Settings</button>
                 </form>

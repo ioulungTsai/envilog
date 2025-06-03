@@ -297,6 +297,21 @@ esp_err_t network_manager_update_config(void)
         return ret;
     }
 
+    // Check current WiFi mode before applying configuration
+    wifi_mode_t current_wifi_mode;
+    ret = esp_wifi_get_mode(&current_wifi_mode);
+    if (ret != ESP_OK) {
+        ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_NETWORK, "Failed to get current WiFi mode");
+        return ret;
+    }
+
+    // Only apply STA configuration if we're in STA or APSTA mode
+    if (current_wifi_mode == WIFI_MODE_AP) {
+        ESP_LOGI(TAG, "Currently in AP mode, storing STA config for later use");
+        // Configuration is already saved to NVS, it will be applied when switching to STA mode
+        return ESP_OK;
+    }
+
     wifi_config_t wifi_config = {
         .sta = {
             .threshold.authmode = WIFI_AUTH_WPA2_PSK,
@@ -325,6 +340,7 @@ esp_err_t network_manager_update_config(void)
         esp_wifi_connect();
     }
 
+    ESP_LOGI(TAG, "Network configuration updated successfully");
     return ESP_OK;
 }
 
