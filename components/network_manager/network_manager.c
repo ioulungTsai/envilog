@@ -11,13 +11,15 @@
 #include "error_handler.h"
 #include "esp_mac.h"
 
+#define WIFI_CONNECTION_TIMEOUT_MS 12000  // 12 seconds
+
 static const char *TAG = "network_manager";
 
 // Network manager state
 static TaskHandle_t network_task_handle = NULL;
 static EventGroupHandle_t network_event_group = NULL;
-static bool immediate_retry = true;  // Added control flag
-static int retry_count = 0;
+static bool connection_timeout_reached = false;
+static esp_timer_handle_t wifi_timeout_timer = NULL;
 static esp_netif_t *sta_netif = NULL;
 static esp_netif_t *ap_netif = NULL;
 static network_mode_t current_mode = NETWORK_MODE_STATION;
@@ -101,46 +103,21 @@ static void network_task(void *pvParameters)
     // Subscribe to WDT after WiFi init
     ESP_ERROR_CHECK(esp_task_wdt_add(NULL));
 
-    // TEMPORARY: Force AP mode for testing
-    ESP_LOGI(TAG, "TESTING: Forcing AP mode");
-    current_mode = NETWORK_MODE_AP;
-    configure_ap_mode();
-
     // Decide initial mode based on provisioning status
-    // if (is_provisioned) {
-    //     ESP_LOGI(TAG, "Starting in Station mode (credentials found)");
-    //     current_mode = NETWORK_MODE_STATION;
-    //     configure_station_mode();
-    // } else {
-    //     ESP_LOGI(TAG, "Starting in AP mode (no credentials)");
-    //     current_mode = NETWORK_MODE_AP;
-    //     configure_ap_mode();
-    // }
-
-    // Rest of your existing network_task logic...
-    const TickType_t retry_interval = pdMS_TO_TICKS(30000);
+    if (is_provisioned) {
+        ESP_LOGI(TAG, "Starting in Station mode (credentials found)");
+        current_mode = NETWORK_MODE_STATION;
+        configure_station_mode();
+    } else {
+        ESP_LOGI(TAG, "Starting in AP mode (no credentials)");
+        current_mode = NETWORK_MODE_AP;
+        configure_ap_mode();
+    }
 
     while (1) {
         ESP_ERROR_CHECK(esp_task_wdt_reset());
 
-        // Your existing retry logic here (only for Station mode)
-        if (current_mode == NETWORK_MODE_STATION) {
-            EventBits_t bits = xEventGroupGetBits(network_event_group);
-            if (!(bits & NETWORK_EVENT_WIFI_CONNECTED) && !immediate_retry) {
-                ESP_LOGI(TAG, "Attempting periodic reconnection");
-                esp_wifi_connect();
-
-                const TickType_t wdt_feed_interval = pdMS_TO_TICKS(2000);
-                TickType_t remaining = retry_interval;
-                while (remaining > 0) {
-                    TickType_t delay_time = (remaining > wdt_feed_interval) ? 
-                                                wdt_feed_interval : remaining;
-                    vTaskDelay(delay_time);
-                    ESP_ERROR_CHECK(esp_task_wdt_reset());
-                    remaining -= delay_time;
-                }
-            }
-        }
+        // Simple monitoring - no complex retry during boot
         
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
@@ -157,21 +134,17 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
                 break;
 
             case WIFI_EVENT_STA_DISCONNECTED:
+                // Stop any running timeout timer
+                if (wifi_timeout_timer != NULL) {
+                    esp_timer_stop(wifi_timeout_timer);
+                }
+                
                 xEventGroupClearBits(network_event_group, NETWORK_EVENT_WIFI_CONNECTED);
                 xEventGroupSetBits(network_event_group, NETWORK_EVENT_WIFI_DISCONNECTED);
-
+                
                 if (current_mode == NETWORK_MODE_STATION) {
-                    if (immediate_retry && retry_count < ENVILOG_WIFI_RETRY_NUM) {
-                        ESP_LOGI(TAG, "Retry connecting to AP (%d/%d)", 
-                                retry_count + 1, ENVILOG_WIFI_RETRY_NUM);
-                        esp_wifi_connect();
-                        retry_count++;
-                    } else if (retry_count == ENVILOG_WIFI_RETRY_NUM) {
-                        ERROR_LOG_WARNING(TAG, ESP_ERR_WIFI_CONN, ERROR_CAT_NETWORK,
-                            "Failed after maximum retries, switching to periodic reconnection");
-                        immediate_retry = false;
-                        retry_count++;
-                    }
+                    ESP_LOGI(TAG, "WiFi disconnected, switching to AP mode");
+                    configure_ap_mode();
                 }
                 break;
             
@@ -211,12 +184,15 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
                 ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
                 ESP_LOGI(TAG, "Got IP address: " IPSTR, IP2STR(&event->ip_info.ip));
                 
+                // Stop timeout timer on successful connection
+                if (wifi_timeout_timer != NULL) {
+                    esp_timer_stop(wifi_timeout_timer);
+                }
+                connection_timeout_reached = false;
+                
                 current_mode = NETWORK_MODE_STATION;
                 xEventGroupSetBits(network_event_group, NETWORK_EVENT_WIFI_CONNECTED);
                 xEventGroupClearBits(network_event_group, NETWORK_EVENT_WIFI_DISCONNECTED);
-                
-                retry_count = 0;
-                immediate_retry = true;
                 break;
             }
 
@@ -293,19 +269,50 @@ static esp_err_t check_provisioning_status(void) {
     network_config_t net_cfg;
     esp_err_t ret = system_manager_load_network_config(&net_cfg);
     
-    if (ret == ESP_OK && strlen(net_cfg.wifi_ssid) > 0) {
+    if (ret == ESP_OK && strlen(net_cfg.wifi_ssid) > 0 &&
+        strcmp(net_cfg.wifi_ssid, "your-ssid") != 0 &&
+        strcmp(net_cfg.wifi_password, "your-password") != 0) {
         is_provisioned = true;
-        ESP_LOGI(TAG, "WiFi credentials found for SSID: %s", net_cfg.wifi_ssid);
+        ESP_LOGI(TAG, "Valid WiFi credentials found for SSID: %s", net_cfg.wifi_ssid);
     } else {
         is_provisioned = false;
-        ESP_LOGI(TAG, "No WiFi credentials found");
+        ESP_LOGI(TAG, "No valid WiFi credentials found");
     }
     
     return ret;
 }
 
+static void wifi_timeout_callback(void* arg) {
+    connection_timeout_reached = true;
+    ESP_LOGI(TAG, "WiFi connection timeout (12s), switching to AP mode");
+
+    // Only switch if not already in AP mode
+    if (current_mode != NETWORK_MODE_AP) {
+        current_mode = NETWORK_MODE_AP;
+        configure_ap_mode();
+    } else {
+        ESP_LOGI(TAG, "Already in AP mode, skipping switch");
+    }
+}
+
 static esp_err_t configure_station_mode(void) {
     ESP_LOGI(TAG, "Configuring Station mode");
+    
+    connection_timeout_reached = false;
+    
+    // Create and start timeout timer
+    if (wifi_timeout_timer == NULL) {
+        esp_timer_create_args_t timer_args = {
+            .callback = wifi_timeout_callback,
+            .name = "wifi_timeout"
+        };
+        esp_timer_create(&timer_args, &wifi_timeout_timer);
+    } else {
+        // Stop any existing timer before starting new one
+        esp_timer_stop(wifi_timeout_timer);
+    }
+
+    esp_timer_start_once(wifi_timeout_timer, WIFI_CONNECTION_TIMEOUT_MS * 1000);
     
     network_config_t net_cfg;
     ESP_ERROR_CHECK(system_manager_load_network_config(&net_cfg));
@@ -360,42 +367,4 @@ network_mode_t network_manager_get_mode(void) {
 
 bool network_manager_is_provisioned(void) {
     return is_provisioned;
-}
-
-esp_err_t network_manager_start_ap_mode(void) {
-    if (current_mode == NETWORK_MODE_AP) {
-        ESP_LOGI(TAG, "Already in AP mode");
-        return ESP_OK;
-    }
-    
-    ESP_LOGI(TAG, "Switching to AP mode");
-    current_mode = NETWORK_MODE_SWITCHING;
-    
-    esp_wifi_stop();
-    vTaskDelay(pdMS_TO_TICKS(100));
-    
-    current_mode = NETWORK_MODE_AP;
-    return configure_ap_mode();
-}
-
-esp_err_t network_manager_switch_to_station(void) {
-    if (!is_provisioned) {
-        ERROR_LOG_ERROR(TAG, ESP_ERR_INVALID_STATE, ERROR_CAT_CONFIG,
-            "Cannot switch to station mode: no credentials");
-        return ESP_ERR_INVALID_STATE;
-    }
-    
-    if (current_mode == NETWORK_MODE_STATION) {
-        ESP_LOGI(TAG, "Already in Station mode");
-        return ESP_OK;
-    }
-    
-    ESP_LOGI(TAG, "Switching to Station mode");
-    current_mode = NETWORK_MODE_SWITCHING;
-    
-    esp_wifi_stop();
-    vTaskDelay(pdMS_TO_TICKS(100));
-    
-    current_mode = NETWORK_MODE_STATION;
-    return configure_station_mode();
 }

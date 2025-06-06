@@ -316,7 +316,7 @@ static esp_err_t update_network_config_handler(httpd_req_t *req)
     httpd_resp_sendstr(req, "{\"status\":\"ok\"}");
 
     // Update network manager after sending response
-    network_manager_update_config();
+    // network_manager_update_config();
 
     return ESP_OK;
 }
