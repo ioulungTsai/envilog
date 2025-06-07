@@ -56,15 +56,6 @@ esp_err_t network_manager_get_rssi(int8_t *rssi);
 bool network_manager_is_connected(void);
 
 /**
- * @brief Update network configuration
- * 
- * @return esp_err_t ESP_OK on success
- */
-esp_err_t network_manager_update_config(void);
-
-// New dual-mode functions
-
-/**
  * @brief Get current network operation mode
  * 
  * @return network_mode_t Current mode
@@ -79,15 +70,14 @@ network_mode_t network_manager_get_mode(void);
 bool network_manager_is_provisioned(void);
 
 /**
- * @brief Start AP mode for configuration
+ * @brief Attempt seamless Station mode switch for web interface
  * 
- * @return esp_err_t ESP_OK on success
- */
-esp_err_t network_manager_start_ap_mode(void);
-
-/**
- * @brief Switch to Station mode (will use stored credentials)
+ * This function attempts to connect to WiFi using stored credentials
+ * and returns the new IP address if successful. Used by web interface
+ * for seamless credential updates.
  * 
- * @return esp_err_t ESP_OK on success
+ * @param new_ip Buffer to store new IP address (minimum 16 chars)
+ * @param ip_len Length of the IP buffer
+ * @return esp_err_t ESP_OK on success with new IP, ESP_FAIL on connection failure
  */
-esp_err_t network_manager_switch_to_station(void);
+esp_err_t network_manager_web_station_switch(char* new_ip, size_t ip_len);

@@ -311,12 +311,25 @@ static esp_err_t update_network_config_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    // Send response before potential WiFi reconnect
-    httpd_resp_set_type(req, "application/json");
-    httpd_resp_sendstr(req, "{\"status\":\"ok\"}");
+    // Attempt seamless Station mode switch
+    char new_ip[16];
+    esp_err_t switch_result = network_manager_web_station_switch(new_ip, sizeof(new_ip));
 
-    // Update network manager after sending response
-    // network_manager_update_config();
+    httpd_resp_set_type(req, "application/json");
+
+    if (switch_result == ESP_OK && strlen(new_ip) > 0) {
+        // Success - return new IP for frontend redirect
+        char response[200];
+        snprintf(response, sizeof(response), 
+                "{\"status\":\"success\",\"new_ip\":\"%s\",\"message\":\"Connected to WiFi\"}", 
+                new_ip);
+        httpd_resp_sendstr(req, response);
+        ESP_LOGI(TAG, "Seamless switch successful, new IP: %s", new_ip);
+    } else {
+        // Failed - stay in AP mode
+        httpd_resp_sendstr(req, "{\"status\":\"error\",\"message\":\"Failed to connect. Check credentials and try again.\"}");
+        ESP_LOGI(TAG, "Station switch failed, staying in AP mode");
+    }
 
     return ESP_OK;
 }
