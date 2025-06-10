@@ -4,6 +4,10 @@ sdkconfig
 sdkconfig.old
 !sdkconfig.defaults
 
+# ESP-IDF Component Manager (Added for mDNS)
+managed_components/
+dependencies.lock
+
 # Compiled Source files
 *.s        # Assembly
 *.o        # Object files

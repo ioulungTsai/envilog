@@ -13,5 +13,5 @@ idf_component_register(
         "vfs"
         "data_manager"
         "error_handler"
-
+        "mdns"
 )

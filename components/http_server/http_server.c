@@ -14,6 +14,7 @@
 #include "data_manager.h"
 #include "esp_spiffs.h"
 #include "error_handler.h"
+#include "mdns.h"
 
 static const char *TAG = "http_server";
 static httpd_handle_t server = NULL;
@@ -481,6 +482,25 @@ esp_err_t http_server_init(const http_server_config_t *config)
     esp_err_t ret = init_spiffs();
     if (ret != ESP_OK) {
         return ret;
+    }
+
+    ESP_LOGI(TAG, "Initializing mDNS service");
+    ret = mdns_init();
+    if (ret != ESP_OK) {
+        ERROR_LOG_WARNING(TAG, ret, ERROR_CAT_SYSTEM, "Failed to init mDNS");
+        // Continue without mDNS - not critical
+    } else {
+        ret = mdns_hostname_set("envilog");
+        if (ret != ESP_OK) {
+            ERROR_LOG_WARNING(TAG, ret, ERROR_CAT_SYSTEM, "Failed to set mDNS hostname");
+        }
+        
+        ret = mdns_service_add("EnviLog", "_http", "_tcp", config->port, NULL, 0);
+        if (ret != ESP_OK) {
+            ERROR_LOG_WARNING(TAG, ret, ERROR_CAT_SYSTEM, "Failed to add mDNS service");
+        } else {
+            ESP_LOGI(TAG, "mDNS service started: envilog.local");
+        }
     }
 
     httpd_config_t http_config = HTTPD_DEFAULT_CONFIG();
