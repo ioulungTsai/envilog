@@ -261,6 +261,30 @@ static esp_err_t get_mqtt_config_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+static void background_network_switch_task(void *pvParameters)
+{
+    char *ssid = (char*)pvParameters;
+    
+    ESP_LOGI(TAG, "Background network switch starting for SSID: %s", ssid);
+    
+    // Wait to ensure HTTP response was fully sent
+    vTaskDelay(pdMS_TO_TICKS(500));
+    
+    // Attempt network switch using your existing function
+    char new_ip[16];
+    esp_err_t result = network_manager_web_station_switch(new_ip, sizeof(new_ip));
+    
+    if (result == ESP_OK && strlen(new_ip) > 0) {
+        ESP_LOGI(TAG, "Background switch successful: %s", new_ip);
+    } else {
+        ESP_LOGI(TAG, "Background switch failed, device staying in AP mode");
+    }
+    
+    // Cleanup
+    free(ssid);
+    vTaskDelete(NULL);
+}
+
 /* Configuration POST Handlers */
 static esp_err_t update_network_config_handler(httpd_req_t *req)
 {
@@ -287,7 +311,6 @@ static esp_err_t update_network_config_handler(httpd_req_t *req)
     }
 
     network_config_t config;
-    // Load existing config first
     esp_err_t err = system_manager_load_network_config(&config);
     if (err != ESP_OK) {
         cJSON_Delete(root);
@@ -295,7 +318,7 @@ static esp_err_t update_network_config_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    // Update only SSID and password
+    // Update configuration
     cJSON *item;
     if ((item = cJSON_GetObjectItem(root, "wifi_ssid")) && item->valuestring) {
         strlcpy(config.wifi_ssid, item->valuestring, sizeof(config.wifi_ssid));
@@ -306,32 +329,35 @@ static esp_err_t update_network_config_handler(httpd_req_t *req)
 
     cJSON_Delete(root);
 
+    // Save configuration
     err = system_manager_save_network_config(&config);
     if (err != ESP_OK) {
         httpd_resp_send_500(req);
         return ESP_FAIL;
     }
 
-    // Attempt seamless Station mode switch
-    char new_ip[16];
-    esp_err_t switch_result = network_manager_web_station_switch(new_ip, sizeof(new_ip));
-
+    // === CRITICAL: Send response IMMEDIATELY ===
     httpd_resp_set_type(req, "application/json");
-
-    if (switch_result == ESP_OK && strlen(new_ip) > 0) {
-        // Success - return new IP for frontend redirect
-        char response[200];
-        snprintf(response, sizeof(response), 
-                "{\"status\":\"success\",\"new_ip\":\"%s\",\"message\":\"Connected to WiFi\"}", 
-                new_ip);
-        httpd_resp_sendstr(req, response);
-        ESP_LOGI(TAG, "Seamless switch successful, new IP: %s", new_ip);
-    } else {
-        // Failed - stay in AP mode
-        httpd_resp_sendstr(req, "{\"status\":\"error\",\"message\":\"Failed to connect. Check credentials and try again.\"}");
-        ESP_LOGI(TAG, "Station switch failed, staying in AP mode");
+    
+    char response[300];
+    snprintf(response, sizeof(response),
+        "{\"status\":\"attempting\",\"ssid\":\"%s\",\"message\":\"Configuration saved. Device will attempt to connect to %s...\"}", 
+        config.wifi_ssid, config.wifi_ssid);
+    
+    httpd_resp_sendstr(req, response);
+    
+    ESP_LOGI(TAG, "HTTP response sent, starting background network switch");
+    
+    // Small delay to ensure response transmission
+    vTaskDelay(pdMS_TO_TICKS(100));
+    
+    // Create background task for network switching
+    char *ssid_copy = malloc(strlen(config.wifi_ssid) + 1);
+    if (ssid_copy) {
+        strcpy(ssid_copy, config.wifi_ssid);
+        xTaskCreate(background_network_switch_task, "bg_net_switch", 4096, ssid_copy, 5, NULL);
     }
-
+    
     return ESP_OK;
 }
 
