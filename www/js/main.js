@@ -10,12 +10,16 @@ const API_ENDPOINTS = {
 // Connection Modal Manager
 class ConnectionModal {
     constructor() {
+        console.log('🔍 Initializing ConnectionModal...');
+
         this.modal = document.getElementById('connection-modal');
         this.title = document.getElementById('modal-title');
         this.body = document.getElementById('modal-body');
         this.footer = document.getElementById('modal-footer');
         this.isActive = false;
         this.preventBackButton = false;
+
+        console.log('✅ ConnectionModal ready');
     }
 
     show(title, bodyContent, footerContent = '', blocking = true) {
@@ -340,6 +344,44 @@ function showMessage(type, message) {
     }
 }
 
+let pollingInterval = null;
+
+function startPolling() {
+    // Clear any existing interval
+    if (pollingInterval) {
+        clearInterval(pollingInterval);
+    }
+    
+    pollingInterval = setInterval(async () => {
+        try {
+            // Test if backend is accessible
+            const response = await fetch('/api/v1/system', { 
+                signal: AbortSignal.timeout(3000) 
+            });
+            
+            if (response.ok) {
+                // Backend accessible - update all data
+                updateSystemInfo();
+                updateNetworkInfo();
+                updateSensorInfo();
+            } else {
+                throw new Error('Backend not responding');
+            }
+        } catch (error) {
+            console.log('Backend unreachable, stopping polls');
+            stopPolling();
+        }
+    }, 5000);
+}
+
+function stopPolling() {
+    if (pollingInterval) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+        console.log('Polling stopped');
+    }
+}
+
 // Initial setup
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing modal...');
@@ -349,6 +391,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Make it globally accessible
     window.connectionModal = connectionModal;
+
+    console.log('✅ Modal initialized successfully');
     
     // Rest of your existing DOMContentLoaded code...
     updateSystemInfo();
@@ -367,11 +411,8 @@ document.addEventListener('DOMContentLoaded', function() {
         mqttForm.addEventListener('submit', handleMqttConfigSubmit);
     }
 
-    setInterval(() => {
-        updateSystemInfo();
-        updateNetworkInfo();
-        updateSensorInfo();
-    }, 5000);
+    // Start smart polling instead of simple setInterval
+    startPolling();
 });
 
 // Universal guidance modal - covers all scenarios
