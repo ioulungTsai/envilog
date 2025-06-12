@@ -532,3 +532,105 @@ body.modal-active .modal-overlay {
         margin-bottom: 8px;
     }
 }
+
+/* Password Input with Toggle */
+.password-input-wrapper {
+    position: relative;
+    display: block;
+}
+
+.password-input-wrapper input {
+    width: 100%;
+    padding: 8px 45px 8px 12px; /* Increased right padding for eye button */
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    box-sizing: border-box; /* Ensure padding is included in width */
+}
+
+.password-input-wrapper input:focus {
+    outline: none;
+    border-color: #0066cc;
+    box-shadow: 0 0 0 2px rgba(0,102,204,0.2);
+}
+
+.password-toggle {
+    position: absolute;
+    right: 10px; /* Moved further inside */
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px; /* Increased touch area */
+    color: #666;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    width: 32px; /* Fixed width for consistent positioning */
+    height: 32px; /* Fixed height for consistent positioning */
+    margin: 0;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    appearance: none;
+    background: transparent !important;
+}
+
+.password-toggle:focus {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* Additional Safari fixes */
+.password-toggle:active,
+.password-toggle:focus,
+.password-toggle:hover {
+    background: transparent !important;
+    outline: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    color: #666 !important;
+}
+
+.password-toggle:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.1);
+}
+
+.password-toggle:active {
+    background-color: rgba(0, 102, 204, 0.2);
+    transform: translateY(-50%) scale(0.95); /* Slight press effect */
+}
+
+.password-toggle svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+    pointer-events: none; /* Prevent SVG from interfering with button events */
+}
+
+/* Mobile improvements */
+@media (max-width: 768px) {
+    .password-toggle {
+        right: 8px;
+        padding: 10px; /* Larger touch area on mobile */
+        width: 36px;
+        height: 36px;
+    }
+    
+    .password-input-wrapper input {
+        padding: 12px 50px 12px 12px; /* More space on mobile */
+        font-size: 16px; /* Prevent zoom on iOS */
+    }
+    
+    .password-toggle svg {
+        width: 18px;
+        height: 18px;
+    }
+}

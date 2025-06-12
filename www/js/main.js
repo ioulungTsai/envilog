@@ -382,6 +382,16 @@ function stopPolling() {
     }
 }
 
+function showPassword(inputId) {
+    const input = document.getElementById(inputId);
+    if (input) input.type = 'text';
+}
+
+function hidePassword(inputId) {
+    const input = document.getElementById(inputId);
+    if (input) input.type = 'password';
+}
+
 // Initial setup
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing modal...');
