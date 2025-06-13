@@ -11,6 +11,7 @@
 #include "error_handler.h"
 #include "esp_mac.h"
 #include "esp_netif.h"
+#include "builtin_led.h"
 
 #define BOOT_CONNECTION_TIMEOUT_MS 12000  // 12 seconds for boot
 #define WEB_CONNECTION_TIMEOUT_MS  8000   // 8 seconds for web interface
@@ -25,6 +26,7 @@ static esp_netif_t *sta_netif = NULL;
 static esp_netif_t *ap_netif = NULL;
 static network_mode_t current_mode = NETWORK_MODE_STATION;
 static bool is_provisioned = false;
+static bool led_available = false;
 
 // Boot vs Web operation context
 typedef enum {
@@ -46,6 +48,17 @@ static esp_err_t configure_ap_mode(void);
 static esp_err_t check_provisioning_status(void);
 static void connection_timeout_callback(void* arg);
 static bool validate_stored_credentials(void);
+static void update_status_led(led_status_t status);
+
+// Helper function to safely update LED status
+static void update_status_led(led_status_t status) {
+    if (led_available) {
+        esp_err_t ret = builtin_led_set_status(status);
+        if (ret != ESP_OK) {
+            ESP_LOGW(TAG, "Failed to update LED status: %s", esp_err_to_name(ret));
+        }
+    }
+}
 
 esp_err_t network_manager_init(void)
 {
@@ -84,6 +97,15 @@ esp_err_t network_manager_init(void)
     // Check provisioning status
     check_provisioning_status();
 
+    // Initialize status LED (optional - system works without it)
+    if (builtin_led_init() == ESP_OK) {
+        led_available = true;
+        ESP_LOGI(TAG, "Status LED initialized successfully");
+    } else {
+        ESP_LOGW(TAG, "Status LED initialization failed - continuing without LED status");
+        led_available = false;
+    }
+
     return ESP_OK;
 }
 
@@ -105,6 +127,9 @@ static void network_task(void *pvParameters)
 {
     ESP_LOGI(TAG, "Network task starting - implementing boot decision logic");
     ESP_ERROR_CHECK(esp_task_wdt_add(NULL));
+
+    // Show dim white during boot decision
+    update_status_led(LED_STATUS_BOOT);
 
     // === BOOT DECISION LOGIC ===
     if (!validate_stored_credentials()) {
@@ -182,6 +207,8 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
             ESP_LOGI(TAG, "AP mode started: EnviLog");
             current_context = WIFI_CONTEXT_RUNTIME;
             xEventGroupSetBits(network_event_group, NETWORK_EVENT_AP_STARTED);
+            // Update LED to AP mode
+            update_status_led(LED_STATUS_AP_MODE);
             break;
 
         case WIFI_EVENT_AP_STOP:
@@ -217,6 +244,9 @@ static void ip_event_handler(void* arg, esp_event_base_t event_base, int32_t eve
         current_context = WIFI_CONTEXT_RUNTIME;
         xEventGroupSetBits(network_event_group, NETWORK_EVENT_WIFI_CONNECTED);
         xEventGroupClearBits(network_event_group, NETWORK_EVENT_WIFI_DISCONNECTED);
+
+        // Update LED to Station mode
+        update_status_led(LED_STATUS_STATION_MODE);
     }
 }
 

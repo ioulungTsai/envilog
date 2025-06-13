@@ -12,4 +12,5 @@ idf_component_register(
              "esp_system"
              "system_manager"
              "error_handler"
+             "builtin_led"
 )
