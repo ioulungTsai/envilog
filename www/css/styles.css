@@ -1,13 +1,18 @@
-/* Ultra-Minimal No-Cards EnviLog Dashboard */
+/* Modern Semantic EnviLog CSS - 2025+ Edition */
 
 /* Import clean font */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap');
 
 /* Reset and Base Styles */
-* {
+*, *::before, *::after {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
+}
+
+html {
+    font-size: 16px;
+    scroll-behavior: smooth;
 }
 
 body {
@@ -17,73 +22,83 @@ body {
     line-height: 1.6;
     font-size: 15px;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
-/* Container - Simple padding only */
-.dashboard {
+/* Accessibility: Visually Hidden */
+.visually-hidden {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+/* App Container - Main Layout */
+.app-container {
     max-width: 600px;
     margin: 0 auto;
-    padding: 40px 24px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 0 24px;
+    container-type: inline-size;
 }
 
-/* Typography - Minimal hierarchy */
-h1 {
-    font-size: 32px;
-    font-weight: 300;
-    color: #1a1a1a;
-    margin-bottom: 60px;
-    letter-spacing: -0.02em;
+/* Header */
+.app-header {
+    padding: 40px 0 20px;
     text-align: center;
 }
 
-h2 {
-    font-size: 16px;
-    font-weight: 500;
-    color: #666666;
-    margin-bottom: 24px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+.app-header h1 {
+    font-size: clamp(28px, 5vw, 32px);
+    font-weight: 300;
+    color: #1a1a1a;
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
 }
 
-h3 {
-    font-size: 14px;
-    font-weight: 500;
-    color: #1a1a1a;
+/* Main Dashboard */
+.dashboard {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 60px;
+}
+
+/* Metrics Section */
+.metrics-section {
+    container-type: inline-size;
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 40px;
     margin-bottom: 20px;
 }
 
-/* Remove all card styles - no backgrounds, borders, shadows */
-.card {
-    background: none;
-    border: none;
-    border-radius: 0;
-    padding: 0;
-    margin-bottom: 60px;
-    box-shadow: none;
-}
-
-/* Status Grid - Clean spacing layout */
-.status-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 40px;
-    margin-bottom: 80px;
-}
-
-/* Metric Areas - Defined by spacing only */
-.metric-area {
-    text-align: center;
+.metric-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     padding: 30px 0;
+    text-align: center;
 }
 
-/* Large Metric Display */
 .metric-value {
-    font-size: 42px;
+    font-size: clamp(36px, 8vw, 42px);
     font-weight: 300;
     color: #1a1a1a;
     line-height: 1;
     margin-bottom: 8px;
     font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+    font-variant-numeric: tabular-nums;
 }
 
 .metric-label {
@@ -94,13 +109,37 @@ h3 {
     letter-spacing: 0.5px;
 }
 
-/* Status Items - Clean list without borders */
+/* Status indicators for sensor */
+.metric-value.status-connected {
+    color: #4caf50;
+}
+
+.metric-value.status-disconnected {
+    color: #f44336;
+}
+
+/* System Section */
+.system-section h2 {
+    font-size: 16px;
+    font-weight: 500;
+    color: #666666;
+    margin-bottom: 24px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.system-status {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
 .status-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 12px 0;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease;
 }
 
 .status-item:hover {
@@ -110,32 +149,35 @@ h3 {
     padding-right: 12px;
 }
 
-.status-item span:first-child {
+.status-item dt {
     font-weight: 400;
     color: #666666;
     font-size: 14px;
 }
 
-.status-item span:last-child {
+.status-item dd {
     font-weight: 400;
     color: #1a1a1a;
     font-size: 14px;
     font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+    font-variant-numeric: tabular-nums;
 }
 
-/* Section Separators - Subtle visual breaks */
-.section-separator {
-    height: 1px;
-    background-color: #e5e5e5;
-    margin: 50px 0;
-    border: none;
-}
-
-/* Configuration Section - Clean spacing */
+/* Configuration Sections */
 .config-section {
-    margin-top: 80px;
+    container-type: inline-size;
 }
 
+.config-section h2 {
+    font-size: 16px;
+    font-weight: 500;
+    color: #666666;
+    margin-bottom: 24px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Modern Forms using Flexbox */
 .config-form {
     display: flex;
     flex-direction: column;
@@ -143,14 +185,13 @@ h3 {
     max-width: 400px;
 }
 
-/* Form Groups - Minimal input design */
-.form-group {
+.form-field {
     display: flex;
     flex-direction: column;
     gap: 8px;
 }
 
-.form-group label {
+.form-field label {
     font-weight: 400;
     color: #666666;
     font-size: 14px;
@@ -158,27 +199,102 @@ h3 {
     letter-spacing: 0.5px;
 }
 
-.form-group input {
+/* Regular Input Fields */
+.form-field input[type="text"],
+.form-field input[type="url"] {
     padding: 16px 0;
     border: none;
     border-bottom: 1px solid #e5e5e5;
     background-color: transparent;
     font-size: 15px;
     font-family: inherit;
-    transition: border-color 0.3s ease;
+    transition: border-bottom-color 0.3s ease;
+    width: 100%;
 }
 
-.form-group input:focus {
+.form-field input:focus {
     outline: none;
     border-bottom-color: #1a1a1a;
 }
 
-.form-group input::placeholder {
+.form-field input::placeholder {
     color: #cccccc;
 }
 
-/* Prominent Button Design */
-button {
+/* Password Field using Flexbox */
+.password-field {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #e5e5e5;
+    padding: 0;
+    gap: 8px;
+    transition: border-bottom-color 0.3s ease;
+}
+
+.password-field:focus-within {
+    border-bottom-color: #1a1a1a;
+}
+
+.password-field input {
+    flex: 1;
+    padding: 16px 0;
+    border: none;
+    background: transparent;
+    font-size: 15px;
+    font-family: inherit;
+    min-width: 0; /* Prevent flex overflow */
+}
+
+.password-field input:focus {
+    outline: none;
+}
+
+/* Modern Password Toggle Button */
+.password-toggle {
+    border: none;
+    background: transparent;
+    color: #999999;
+    cursor: pointer;
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+}
+
+.password-toggle:hover {
+    color: #666666;
+    background-color: rgba(0, 0, 0, 0.04);
+}
+
+.password-toggle:active {
+    color: #333333;
+    background-color: rgba(0, 0, 0, 0.08);
+    scale: 0.95;
+}
+
+.password-toggle:focus-visible {
+    outline: 2px solid #1a1a1a;
+    outline-offset: 2px;
+}
+
+.password-toggle[aria-pressed="true"] {
+    color: #1a1a1a;
+    background-color: rgba(0, 0, 0, 0.06);
+}
+
+.password-toggle svg {
+    width: 20px;
+    height: 20px;
+    pointer-events: none;
+}
+
+/* Submit Buttons */
+.submit-button {
     background: #4a4a4a;
     color: white;
     border: none;
@@ -186,78 +302,66 @@ button {
     font-weight: 500;
     font-size: 14px;
     font-family: inherit;
-    margin-top: 30px;
+    margin-top: 10px;
     cursor: pointer;
     transition: all 0.3s ease;
     text-transform: uppercase;
     letter-spacing: 1px;
     border-radius: 2px;
+    align-self: flex-start;
 }
 
-button:hover {
+.submit-button:hover {
     background: #333333;
     transform: translateY(-1px);
 }
 
-button:active {
+.submit-button:active {
     background: #2a2a2a;
     transform: translateY(0);
 }
 
-button:disabled {
+.submit-button:disabled {
     background: #cccccc;
     cursor: not-allowed;
     transform: none;
 }
 
-/* Status Messages - Minimal alerts */
-.status-message {
-    padding: 16px 0;
-    margin: 24px 0;
+.submit-button:focus-visible {
+    outline: 2px solid #1a1a1a;
+    outline-offset: 2px;
+}
+
+/* Form Messages */
+.form-messages {
+    min-height: 24px;
     font-size: 14px;
     font-weight: 400;
-    display: none;
-    border-left: 2px solid;
+    transition: all 0.3s ease;
+}
+
+.form-messages.success {
+    color: #2d5a27;
+    border-left: 2px solid #4caf50;
     padding-left: 16px;
 }
 
-.status-message.success {
-    color: #2d5a27;
-    border-left-color: #4caf50;
-}
-
-.status-message.error {
+.form-messages.error {
     color: #b71c1c;
-    border-left-color: #f44336;
+    border-left: 2px solid #f44336;
+    padding-left: 16px;
 }
 
-/* Loading Indicator - Minimal */
-.loading {
-    display: none;
-    margin: 24px 0;
-    color: #666666;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
+/* Footer */
+.app-footer {
+    padding: 40px 0 20px;
+    text-align: center;
+    color: #999999;
+    font-size: 13px;
+    margin-top: auto;
 }
 
-.loading::before {
-    content: '';
-    width: 12px;
-    height: 12px;
-    border: 1px solid #e5e5e5;
-    border-top: 1px solid #1a1a1a;
-    border-radius: 50%;
-    animation: spin 1.5s linear infinite;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-/* Modal - Clean design */
+/* Modal Styles - Updated for Accessibility */
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -266,14 +370,14 @@ button:disabled {
     height: 100vh;
     background-color: rgba(255, 255, 255, 0.95);
     z-index: 9999;
-    display: none;
+    display: flex;
     justify-content: center;
     align-items: center;
+    backdrop-filter: blur(4px);
 }
 
-.modal-overlay.show {
-    display: flex;
-    animation: modalFadeIn 0.3s ease;
+.modal-overlay[hidden] {
+    display: none;
 }
 
 .modal-content {
@@ -283,7 +387,8 @@ button:disabled {
     max-width: 500px;
     width: 90vw;
     max-height: 80vh;
-    overflow: hidden;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
 }
 
 .modal-header {
@@ -314,102 +419,66 @@ button:disabled {
     justify-content: flex-end;
 }
 
-/* Password Input - Clean design with better eye button */
-.password-input-wrapper {
-    position: relative;
-    display: block;
-}
-
-.password-input-wrapper input {
-    width: 100%;
-    padding: 16px 50px 16px 0;
-    border: none;
-    border-bottom: 1px solid #e5e5e5;
-    background-color: transparent;
-    font-size: 15px;
-    transition: border-color 0.3s ease;
-}
-
-.password-toggle {
-    position: absolute;
-    right: 0;
-    top: 8px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: #999999;
-    padding: 12px;
-    transition: color 0.2s ease;
-    width: 44px;
-    height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.password-toggle:hover {
-    color: #666666;
-}
-
-.password-toggle:active {
-    color: #333333;
-}
-
-.password-toggle svg {
-    width: 20px;
-    height: 20px;
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-    .dashboard {
-        padding: 30px 20px;
-    }
-    
-    .status-grid {
+/* Container Queries for Responsive Design */
+@container (max-width: 400px) {
+    .metrics-grid {
         grid-template-columns: 1fr;
         gap: 30px;
-        margin-bottom: 60px;
     }
     
-    .metric-area {
+    .metric-card {
         padding: 20px 0;
     }
     
-    .metric-value {
-        font-size: 36px;
-    }
-    
-    h1 {
-        font-size: 28px;
-        margin-bottom: 50px;
-    }
-    
-    .config-section {
-        margin-top: 60px;
-    }
-    
-    .section-separator {
-        margin: 40px 0;
-    }
-    
     .config-form {
-        gap: 25px;
+        max-width: 100%;
     }
     
-    button {
-        padding: 16px 35px;
-        font-size: 13px;
+    .submit-button {
+        width: 100%;
+        padding: 16px 20px;
     }
-    
+}
+
+@container (max-width: 300px) {
     .password-toggle {
         width: 40px;
         height: 40px;
+        padding: 10px;
     }
     
     .password-toggle svg {
         width: 18px;
         height: 18px;
+    }
+}
+
+@container (min-width: 500px) {
+    .metrics-grid {
+        gap: 50px;
+    }
+    
+    .status-item {
+        padding: 14px 0;
+    }
+    
+    .config-form {
+        gap: 35px;
+    }
+}
+
+/* Global Media Queries for App Container */
+@media (max-width: 768px) {
+    .app-container {
+        padding: 0 20px;
+    }
+    
+    .dashboard {
+        gap: 50px;
+    }
+    
+    .app-header {
+        padding: 30px 0 15px;
     }
     
     .modal-content {
@@ -423,52 +492,18 @@ button:disabled {
     }
 }
 
-/* Status Indicators */
-.status-connected {
-    color: #4caf50 !important;
-}
-
-.status-disconnected {
-    color: #f44336 !important;
-}
-
-.status-normal {
-    color: #1a1a1a !important;
-}
-
-/* Remove all special card backgrounds */
-#system-info,
-#network-info,
-#sensor-info {
-    background: transparent;
-}
-
 /* Focus Styles for Accessibility */
-button:focus-visible,
-input:focus-visible,
-.password-toggle:focus-visible {
+*:focus-visible {
     outline: 2px solid #1a1a1a;
     outline-offset: 2px;
 }
 
-/* Animation Keyframes */
-@keyframes modalFadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-/* Performance Optimizations */
-button, 
-.status-item,
-input {
-    will-change: transform;
-}
-
-/* Accessibility */
+/* Reduced Motion Support */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
     }
 }

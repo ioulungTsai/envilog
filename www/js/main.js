@@ -213,7 +213,7 @@ async function updateSensorInfo() {
             
             // Update sensor status
             const sensorStatus = document.getElementById('sensor-status');
-            sensorStatus.textContent = '●';
+            sensorStatus.textContent = '◯';
             sensorStatus.className = 'metric-value status-connected';
         } else {
             document.getElementById('temperature-value').textContent = '--°C';
@@ -221,7 +221,7 @@ async function updateSensorInfo() {
             
             // Update sensor status for error
             const sensorStatus = document.getElementById('sensor-status');
-            sensorStatus.textContent = '○';
+            sensorStatus.textContent = '◯';
             sensorStatus.className = 'metric-value status-disconnected';
         }
     } catch (error) {
@@ -231,7 +231,7 @@ async function updateSensorInfo() {
         document.getElementById('humidity-value').textContent = '--%';
         
         const sensorStatus = document.getElementById('sensor-status');
-        sensorStatus.textContent = '○';
+        sensorStatus.textContent = '◯';
         sensorStatus.className = 'metric-value status-disconnected';
     }
 }
@@ -400,20 +400,70 @@ function stopPolling() {
     }
 }
 
-function showPassword(inputId) {
+// Password Toggle Functions
+function showPassword(button) {
+    const inputId = button.dataset.target;
     const input = document.getElementById(inputId);
-    if (input) input.type = 'text';
+    
+    if (input) {
+        input.type = 'text';
+        button.setAttribute('aria-pressed', 'true');
+        button.setAttribute('aria-label', 'Hide password');
+    }
 }
 
-function hidePassword(inputId) {
+function hidePassword(button) {
+    const inputId = button.dataset.target;
     const input = document.getElementById(inputId);
-    if (input) input.type = 'password';
+    
+    if (input) {
+        input.type = 'password';
+        button.setAttribute('aria-pressed', 'false');
+        button.setAttribute('aria-label', 'Show password');
+    }
+}
+
+// Modern Event Listener Initialization
+function initPasswordToggles() {
+    const passwordToggles = document.querySelectorAll('.password-toggle');
+    
+    passwordToggles.forEach(button => {
+        // Touch/pointer events for mobile and desktop
+        button.addEventListener('pointerdown', () => showPassword(button));
+        button.addEventListener('pointerup', () => hidePassword(button));
+        button.addEventListener('pointerleave', () => hidePassword(button));
+        
+        // Click event for accessibility (keyboard users)
+        button.addEventListener('click', (e) => {
+            e.preventDefault(); // Prevent form submission
+            const isPressed = button.getAttribute('aria-pressed') === 'true';
+            if (isPressed) {
+                hidePassword(button);
+            } else {
+                showPassword(button);
+            }
+        });
+        
+        // Keyboard support
+        button.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                const isPressed = button.getAttribute('aria-pressed') === 'true';
+                if (isPressed) {
+                    hidePassword(button);
+                } else {
+                    showPassword(button);
+                }
+            }
+        });
+    });
 }
 
 // Initial setup
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing modal...');
-    
+    initPasswordToggles();
+
     // Initialize modal AFTER DOM is ready
     const connectionModal = new ConnectionModal();
     

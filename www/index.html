@@ -3,122 +3,178 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EnviLog</title>
+    <meta name="description" content="EnviLog Environmental Monitoring Dashboard - Monitor temperature, humidity, and system status">
+    <title>EnviLog - Environmental Monitor</title>
     <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
-    <div class="dashboard">
-        <h1>EnviLog</h1>
+    <div class="app-container">
+        <header class="app-header">
+            <h1>EnviLog</h1>
+            <p class="app-subtitle">Environmental Monitoring System</p>
+        </header>
         
-        <!-- Main Metrics Grid -->
-        <div class="status-grid">
-            <!-- Temperature Metric -->
-            <div class="metric-area">
-                <div class="metric-value" id="temperature-value">--°C</div>
-                <div class="metric-label">Temperature</div>
-            </div>
-            
-            <!-- Humidity Metric -->
-            <div class="metric-area">
-                <div class="metric-value" id="humidity-value">--%</div>
-                <div class="metric-label">Humidity</div>
-            </div>
-            
-            <!-- Status Metric -->
-            <div class="metric-area">
-                <div class="metric-value" id="sensor-status">●</div>
-                <div class="metric-label">Sensor</div>
-            </div>
-        </div>
-
-        <hr class="section-separator">
-
-        <!-- System Information -->
-        <div class="system-section">
-            <h2>System</h2>
-            <div class="status-item">
-                <span>Free Heap</span>
-                <span id="heap-size">Loading...</span>
-            </div>
-            <div class="status-item">
-                <span>Uptime</span>
-                <span id="uptime">Loading...</span>
-            </div>
-            <div class="status-item">
-                <span>WiFi Status</span>
-                <span id="wifi-status">Loading...</span>
-            </div>
-            <div class="status-item">
-                <span>Signal</span>
-                <span id="rssi">Loading...</span>
-            </div>
-        </div>
-
-        <hr class="section-separator">
-
-        <!-- Configuration Section -->
-        <div class="config-section">
-            <h2>Network Settings</h2>
-            <form id="network-config-form" class="config-form">
-                <div class="form-group">
-                    <label for="wifi-ssid">WiFi Network</label>
-                    <input type="text" id="wifi-ssid" name="wifi_ssid" placeholder="Enter network name">
+        <main class="dashboard" role="main">
+            <!-- Environmental Metrics Section -->
+            <section class="metrics-section" aria-labelledby="metrics-heading">
+                <h2 id="metrics-heading" class="visually-hidden">Environmental Metrics</h2>
+                
+                <div class="metrics-grid" role="group" aria-label="Current sensor readings">
+                    <article class="metric-card" aria-labelledby="temp-label">
+                        <div class="metric-value" id="temperature-value" aria-live="polite">--°C</div>
+                        <div class="metric-label" id="temp-label">Temperature</div>
+                    </article>
+                    
+                    <article class="metric-card" aria-labelledby="humidity-label">
+                        <div class="metric-value" id="humidity-value" aria-live="polite">--%</div>
+                        <div class="metric-label" id="humidity-label">Humidity</div>
+                    </article>
+                    
+                    <article class="metric-card" aria-labelledby="sensor-label">
+                        <div class="metric-value" id="sensor-status" aria-live="polite" aria-label="Sensor connection status">◯</div>
+                        <div class="metric-label" id="sensor-label">Sensor Status</div>
+                    </article>
                 </div>
-                <div class="form-group">
-                    <label for="wifi-password">Password</label>
-                    <div class="password-input-wrapper">
-                        <input type="password" 
-                            id="wifi-password" 
-                            name="wifi_password" 
-                            placeholder="Enter password"
-                            autocomplete="off" 
-                            required>
-                        <button type="button" 
-                                class="password-toggle" 
-                                onpointerdown="showPassword('wifi-password')" 
-                                onpointerup="hidePassword('wifi-password')" 
-                                onpointerleave="hidePassword('wifi-password')">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
-                                <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
-                            </svg>
-                        </button>
+            </section>
+
+            <!-- System Information Section -->
+            <section class="system-section" aria-labelledby="system-heading">
+                <h2 id="system-heading">System Information</h2>
+                
+                <dl class="system-status" role="group" aria-label="System status information">
+                    <div class="status-item">
+                        <dt>Free Memory</dt>
+                        <dd id="heap-size" aria-live="polite">Loading...</dd>
                     </div>
-                </div>
-                <button type="submit">Save Settings</button>
-            </form>
-        </div>
+                    <div class="status-item">
+                        <dt>System Uptime</dt>
+                        <dd id="uptime" aria-live="polite">Loading...</dd>
+                    </div>
+                    <div class="status-item">
+                        <dt>WiFi Connection</dt>
+                        <dd id="wifi-status" aria-live="polite">Loading...</dd>
+                    </div>
+                    <div class="status-item">
+                        <dt>Signal Strength</dt>
+                        <dd id="rssi" aria-live="polite">Loading...</dd>
+                    </div>
+                </dl>
+            </section>
 
-        <hr class="section-separator">
+            <!-- Configuration Sections -->
+            <section class="config-section" aria-labelledby="network-config-heading">
+                <h2 id="network-config-heading">Network Configuration</h2>
+                
+                <form id="network-config-form" class="config-form" novalidate aria-describedby="network-form-desc">
+                    <p id="network-form-desc" class="form-description">
+                        Configure WiFi network settings for your EnviLog device.
+                    </p>
+                    
+                    <div class="form-field">
+                        <label for="wifi-ssid">WiFi Network Name (SSID)</label>
+                        <input type="text" 
+                               id="wifi-ssid" 
+                               name="wifi_ssid" 
+                               autocomplete="off"
+                               aria-describedby="ssid-help"
+                               required>
+                        <div id="ssid-help" class="field-help">Enter the name of your WiFi network</div>
+                    </div>
+                    
+                    <div class="form-field">
+                        <label for="wifi-password">WiFi Password</label>
+                        <div class="password-field">
+                            <input type="password" 
+                                   id="wifi-password" 
+                                   name="wifi_password" 
+                                   autocomplete="current-password"
+                                   aria-describedby="password-help password-toggle-desc"
+                                   required>
+                            <button type="button" 
+                                    class="password-toggle" 
+                                    aria-label="Show password"
+                                    aria-pressed="false"
+                                    aria-describedby="password-toggle-desc"
+                                    data-target="wifi-password">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                                    <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
+                                    <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div id="password-help" class="field-help">Enter your WiFi network password</div>
+                        <div id="password-toggle-desc" class="visually-hidden">Button to toggle password visibility</div>
+                    </div>
+                    
+                    <button type="submit" class="submit-button" aria-describedby="network-submit-desc">
+                        Save Network Settings
+                    </button>
+                    <div id="network-submit-desc" class="visually-hidden">
+                        This will attempt to connect your device to the specified WiFi network
+                    </div>
+                    
+                    <!-- Form Messages Area -->
+                    <div class="form-messages" aria-live="polite" aria-atomic="true" role="status"></div>
+                </form>
+            </section>
 
-        <!-- MQTT Settings -->
-        <div class="config-section">
-            <h2>MQTT Settings</h2>
-            <form id="mqtt-config-form" class="config-form">
-                <div class="form-group">
-                    <label for="broker-url">Broker URL</label>
-                    <input type="text" id="broker-url" name="broker_url" placeholder="mqtt://broker.example.com">
-                </div>
-                <button type="submit">Save Settings</button>
-            </form>
+            <section class="config-section" aria-labelledby="mqtt-config-heading">
+                <h2 id="mqtt-config-heading">MQTT Configuration</h2>
+                
+                <form id="mqtt-config-form" class="config-form" novalidate aria-describedby="mqtt-form-desc">
+                    <p id="mqtt-form-desc" class="form-description">
+                        Configure MQTT broker settings for remote data publishing.
+                    </p>
+                    
+                    <div class="form-field">
+                        <label for="broker-url">MQTT Broker URL</label>
+                        <input type="url" 
+                               id="broker-url" 
+                               name="broker_url" 
+                               placeholder="mqtt://broker.example.com"
+                               aria-describedby="broker-help"
+                               autocomplete="off">
+                        <div id="broker-help" class="field-help">
+                            Enter the complete MQTT broker URL (e.g., mqtt://your-broker.com:1883)
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="submit-button">
+                        Save MQTT Settings
+                    </button>
+                    
+                    <!-- Form Messages Area -->
+                    <div class="form-messages" aria-live="polite" aria-atomic="true" role="status"></div>
+                </form>
+            </section>
+        </main>
+        
+        <footer class="app-footer">
+            <p>EnviLog Environmental Monitoring System</p>
+        </footer>
+    </div>
+    
+    <!-- Connection Status Modal -->
+    <div id="connection-modal" 
+         class="modal-overlay" 
+         role="dialog" 
+         aria-modal="true" 
+         aria-labelledby="modal-title"
+         aria-describedby="modal-body"
+         hidden>
+        <div class="modal-content">
+            <header class="modal-header">
+                <h3 id="modal-title">Connecting to WiFi...</h3>
+            </header>
+            <div class="modal-body" id="modal-body">
+                <!-- Dynamic content will be inserted here -->
+            </div>
+            <footer class="modal-footer" id="modal-footer">
+                <!-- Dynamic buttons will be inserted here -->
+            </footer>
         </div>
     </div>
     
     <script src="/js/main.js"></script>
-
-    <!-- Connection Modal -->
-    <div id="connection-modal" class="modal-overlay">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="modal-title">Connecting to WiFi...</h3>
-            </div>
-            <div class="modal-body" id="modal-body">
-                <!-- Dynamic content will be inserted here -->
-            </div>
-            <div class="modal-footer" id="modal-footer">
-                <!-- Dynamic buttons will be inserted here -->
-            </div>
-        </div>
-    </div>
 </body>
 </html>
