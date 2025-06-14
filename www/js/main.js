@@ -205,16 +205,34 @@ async function updateSensorInfo() {
         const data = await response.json();
         
         if (data.valid) {
-            document.getElementById('temperature').textContent = 
+            // Update the new metric value elements
+            document.getElementById('temperature-value').textContent = 
                 `${data.temperature.toFixed(1)}°C`;
-            document.getElementById('humidity').textContent = 
+            document.getElementById('humidity-value').textContent = 
                 `${data.humidity.toFixed(1)}%`;
+            
+            // Update sensor status
+            const sensorStatus = document.getElementById('sensor-status');
+            sensorStatus.textContent = '●';
+            sensorStatus.className = 'metric-value status-connected';
         } else {
-            document.getElementById('temperature').textContent = 'N/A';
-            document.getElementById('humidity').textContent = 'N/A';
+            document.getElementById('temperature-value').textContent = '--°C';
+            document.getElementById('humidity-value').textContent = '--%';
+            
+            // Update sensor status for error
+            const sensorStatus = document.getElementById('sensor-status');
+            sensorStatus.textContent = '○';
+            sensorStatus.className = 'metric-value status-disconnected';
         }
     } catch (error) {
         console.error('Error fetching sensor data:', error);
+        // Show error state
+        document.getElementById('temperature-value').textContent = '--°C';
+        document.getElementById('humidity-value').textContent = '--%';
+        
+        const sensorStatus = document.getElementById('sensor-status');
+        sensorStatus.textContent = '○';
+        sensorStatus.className = 'metric-value status-disconnected';
     }
 }
 
@@ -429,35 +447,35 @@ document.addEventListener('DOMContentLoaded', function() {
 function showUniversalGuidance(homeSSID) {
     const content = `
         <div class="universal-guidance">
-            <h4>📡 WiFi Configuration Sent</h4>
+            <h4>WiFi Configuration Sent</h4>
             <p>Device is attempting connection. Choose one option:</p>
             
             <div class="connection-options">
                 <div class="option-card primary-option">
-                    <h5>🏠 Connect to: "${homeSSID}"</h5>
+                    <h5>Connect to: "${homeSSID}"</h5>
                     <p>Use your entered password → Access: <a href="http://envilog.local" target="_blank">envilog.local</a></p>
                 </div>
                 
                 <div class="option-divider"><span>OR</span></div>
                 
                 <div class="option-card secondary-option">
-                    <h5>⚙️ Connect to: "EnviLog"</h5>
+                    <h5>Connect to: "EnviLog"</h5>
                     <p>Password: <span class="password-display">envilog1212</span> → Access: <a href="http://192.168.4.1" target="_blank">192.168.4.1</a></p>
                 </div>
             </div>
             
             <div class="status-indicators">
-                <p><strong>💡 Tip:</strong> Refresh WiFi list to see if "EnviLog" reappears (indicates connection failed)</p>
+                <p><strong>Tip:</strong> Refresh WiFi list to see if "EnviLog" reappears (indicates connection failed)</p>
             </div>
         </div>
     `;
     
     const footer = `
         <button class="modal-btn secondary" onclick="openWiFiSettings()">
-            📱 Open WiFi Settings
+            OPEN WIFI SETTINGS
         </button>
         <button class="modal-btn primary" onclick="connectionModal.hide()">
-            I'll Connect Now
+            I'LL CONNECT NOW
         </button>
     `;
     
