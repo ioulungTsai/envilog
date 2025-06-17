@@ -72,12 +72,14 @@
                     
                     <div class="form-field">
                         <label for="wifi-ssid">WiFi Network Name (SSID)</label>
-                        <input type="text" 
-                               id="wifi-ssid" 
-                               name="wifi_ssid" 
-                               autocomplete="off"
-                               aria-describedby="ssid-help"
-                               required>
+                        <div class="text-field">
+                            <input type="text" 
+                                id="wifi-ssid" 
+                                name="wifi_ssid" 
+                                autocomplete="off"
+                                aria-describedby="ssid-help"
+                                required>
+                        </div>
                         <div id="ssid-help" class="field-help">Enter the name of your WiFi network</div>
                     </div>
                     
@@ -128,12 +130,14 @@
                     
                     <div class="form-field">
                         <label for="broker-url">MQTT Broker URL</label>
-                        <input type="url" 
-                               id="broker-url" 
-                               name="broker_url" 
-                               placeholder="mqtt://broker.example.com"
-                               aria-describedby="broker-help"
-                               autocomplete="off">
+                        <div class="url-field">
+                            <input type="url" 
+                                id="broker-url" 
+                                name="broker_url" 
+                                placeholder="mqtt://broker.example.com"
+                                aria-describedby="broker-help"
+                                autocomplete="off">
+                        </div>
                         <div id="broker-help" class="field-help">
                             Enter the complete MQTT broker URL (e.g., mqtt://your-broker.com:1883)
                         </div>

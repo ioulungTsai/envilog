@@ -32,12 +32,14 @@ class ConnectionModal {
             this.preventNavigation();
         }
         
+        this.modal.removeAttribute('hidden');
         this.modal.classList.add('show');
         this.isActive = true;
     }
 
     hide() {
         this.modal.classList.remove('show');
+        this.modal.setAttribute('hidden', '');
         document.body.classList.remove('modal-active');
         this.allowNavigation();
         this.isActive = false;
@@ -423,28 +425,23 @@ function hidePassword(button) {
     }
 }
 
-// Modern Event Listener Initialization
+// Simple Password Toggle - Hold to Reveal + Accessibility
 function initPasswordToggles() {
     const passwordToggles = document.querySelectorAll('.password-toggle');
     
     passwordToggles.forEach(button => {
-        // Touch/pointer events for mobile and desktop
-        button.addEventListener('pointerdown', () => showPassword(button));
-        button.addEventListener('pointerup', () => hidePassword(button));
-        button.addEventListener('pointerleave', () => hidePassword(button));
         
-        // Click event for accessibility (keyboard users)
-        button.addEventListener('click', (e) => {
-            e.preventDefault(); // Prevent form submission
-            const isPressed = button.getAttribute('aria-pressed') === 'true';
-            if (isPressed) {
-                hidePassword(button);
-            } else {
-                showPassword(button);
-            }
-        });
+        // LAPTOP: Mouse events
+        button.addEventListener('mousedown', () => showPassword(button));
+        button.addEventListener('mouseup', () => hidePassword(button));
+        button.addEventListener('mouseleave', () => hidePassword(button));
         
-        // Keyboard support
+        // MOBILE: Touch events  
+        button.addEventListener('touchstart', () => showPassword(button));
+        button.addEventListener('touchend', () => hidePassword(button));
+        button.addEventListener('touchcancel', () => hidePassword(button));
+        
+        // ACCESSIBILITY: Keyboard users (toggle behavior)
         button.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
@@ -456,6 +453,10 @@ function initPasswordToggles() {
                 }
             }
         });
+        
+        // ACCESSIBILITY: Focus management
+        button.addEventListener('blur', () => hidePassword(button));
+        
     });
 }
 

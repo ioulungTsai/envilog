@@ -199,29 +199,9 @@ body {
     letter-spacing: 0.5px;
 }
 
-/* Regular Input Fields */
-.form-field input[type="text"],
-.form-field input[type="url"] {
-    padding: 16px 0;
-    border: none;
-    border-bottom: 1px solid #e5e5e5;
-    background-color: transparent;
-    font-size: 15px;
-    font-family: inherit;
-    transition: border-bottom-color 0.3s ease;
-    width: 100%;
-}
-
-.form-field input:focus {
-    outline: none;
-    border-bottom-color: #1a1a1a;
-}
-
-.form-field input::placeholder {
-    color: #cccccc;
-}
-
-/* Password Field using Flexbox */
+/* Base Field Container - applies to all input wrapper types */
+.text-field,
+.url-field,
 .password-field {
     display: flex;
     align-items: center;
@@ -231,10 +211,16 @@ body {
     transition: border-bottom-color 0.3s ease;
 }
 
+/* Focus state - applies to all field containers */
+.text-field:focus-within,
+.url-field:focus-within,
 .password-field:focus-within {
     border-bottom-color: #1a1a1a;
 }
 
+/* Base Input Styles - applies to all inputs inside field containers */
+.text-field input,
+.url-field input,
 .password-field input {
     flex: 1;
     padding: 16px 0;
@@ -245,14 +231,17 @@ body {
     min-width: 0; /* Prevent flex overflow */
 }
 
+/* Input focus state - applies to all inputs */
+.text-field input:focus,
+.url-field input:focus,
 .password-field input:focus {
     outline: none;
 }
 
-/* Modern Password Toggle Button */
+/* Clean Password Toggle Effects */
 .password-toggle {
     border: none;
-    background: transparent;
+    background: transparent !important;  /* Force override Safari defaults */
     color: #999999;
     cursor: pointer;
     padding: 12px;
@@ -264,33 +253,58 @@ body {
     flex-shrink: 0;
     width: 44px;
     height: 44px;
+    -webkit-appearance: none;            /* Remove Safari button styling */
+    appearance: none;                    /* Remove default button styling */
+    -webkit-tap-highlight-color: transparent;  /* Remove Safari tap highlight */
+
+     /* Disable text selection */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    
+    /* Disable touch callout (long press menu) */
+    -webkit-touch-callout: none;
 }
 
+/* LAPTOP: Hover effect - subtle color change only */
 .password-toggle:hover {
-    color: #666666;
-    background-color: rgba(0, 0, 0, 0.04);
-}
-
-.password-toggle:active {
     color: #333333;
-    background-color: rgba(0, 0, 0, 0.08);
-    scale: 0.95;
+    transform: scale(1.05);
+    background: transparent !important;  /* Ensure no background on hover */
 }
 
+/* Explicitly override active state on all devices */
+.password-toggle:active {
+    background: transparent !important;  /* Force no background on active */
+    color: #333333;
+    transform: scale(1.00);
+}
+
+/* Remove hover on touch devices to prevent sticky states */
+@media (hover: none) {
+    .password-toggle:hover {
+        color: #999999;
+        transform: none;
+    }
+}
+
+/* Keep focus styles for accessibility */
 .password-toggle:focus-visible {
     outline: 2px solid #1a1a1a;
     outline-offset: 2px;
 }
 
+/* Pressed state indicator (only for when password is shown) */
 .password-toggle[aria-pressed="true"] {
     color: #1a1a1a;
-    background-color: rgba(0, 0, 0, 0.06);
 }
 
 .password-toggle svg {
     width: 20px;
     height: 20px;
     pointer-events: none;
+    transition: inherit;
 }
 
 /* Submit Buttons */
