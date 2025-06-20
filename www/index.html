@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="EnviLog Environmental Monitoring Dashboard - Monitor temperature, humidity, and system status">
     <title>EnviLog - Environmental Monitor</title>
-    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
     <div class="app-container">
@@ -109,7 +109,7 @@
                     </div>
                     
                     <button type="submit" class="submit-button" aria-describedby="network-submit-desc">
-                        Save Network Settings
+                        Connect
                     </button>
                     <div id="network-submit-desc" class="visually-hidden">
                         This will attempt to connect your device to the specified WiFi network
@@ -144,7 +144,7 @@
                     </div>
                     
                     <button type="submit" class="submit-button">
-                        Save MQTT Settings
+                        Update
                     </button>
                     
                     <!-- Form Messages Area -->
@@ -159,26 +159,23 @@
     </div>
     
     <!-- Connection Status Modal -->
-    <div id="connection-modal" 
-         class="modal-overlay" 
-         role="dialog" 
-         aria-modal="true" 
-         aria-labelledby="modal-title"
-         aria-describedby="modal-body"
-         hidden>
-        <div class="modal-content">
-            <header class="modal-header">
-                <h3 id="modal-title">Connecting to WiFi...</h3>
-            </header>
-            <div class="modal-body" id="modal-body">
-                <!-- Dynamic content will be inserted here -->
-            </div>
+    <dialog id="connection-modal" 
+            class="modal-overlay" 
+            role="dialog" 
+            aria-modal="true" 
+            aria-labelledby="modal-title"
+            aria-describedby="modal-body"
+            hidden>
+        <article class="modal-content">
+            <main class="modal-body" id="modal-body">
+                <!-- Empty - will be filled by JS -->
+            </main>
             <footer class="modal-footer" id="modal-footer">
-                <!-- Dynamic buttons will be inserted here -->
+                <!-- Empty - will be filled by JS -->
             </footer>
-        </div>
-    </div>
+        </article>
+    </dialog>
     
-    <script src="/js/main.js"></script>
+    <script src="js/main.js"></script>
 </body>
 </html>

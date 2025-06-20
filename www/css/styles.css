@@ -38,9 +38,9 @@ body {
     border: 0 !important;
 }
 
-/* App Container - Main Layout */
+/* App Container - Main Layout with responsive padding */
 .app-container {
-    max-width: 600px;
+    max-width: 450px;
     margin: 0 auto;
     min-height: 100vh;
     display: flex;
@@ -49,9 +49,15 @@ body {
     container-type: inline-size;
 }
 
-/* Header */
+@media (max-width: 480px) {
+    .app-container {
+        padding: 0 40px; /* Mobile */
+    }
+}
+
+/* Header - responsive padding */
 .app-header {
-    padding: 40px 0 20px;
+    padding: clamp(30px, 6vw, 40px) 0 clamp(15px, 3vw, 20px);
     text-align: center;
 }
 
@@ -63,7 +69,7 @@ body {
     margin-bottom: 8px;
 }
 
-/* Main Dashboard */
+/* Main Dashboard - responsive gaps */
 .dashboard {
     flex: 1;
     display: flex;
@@ -77,23 +83,23 @@ body {
 }
 
 .metrics-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 40px;
-    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(30px, 6vw, 40px);
+    margin-bottom: clamp(15px, 3vw, 20px);
 }
 
 .metric-card {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 30px 0;
+    padding: clamp(20px, 4vw, 30px) 0;
     text-align: center;
 }
 
 .metric-value {
-    font-size: clamp(36px, 8vw, 42px);
-    font-weight: 300;
+    font-size: clamp(24px, 8vw, 28px);
+    font-weight: 100;
     color: #1a1a1a;
     line-height: 1;
     margin-bottom: 8px;
@@ -121,9 +127,9 @@ body {
 /* System Section */
 .system-section h2 {
     font-size: 16px;
-    font-weight: 500;
-    color: #666666;
-    margin-bottom: 24px;
+    font-weight: 400;
+    color: #333333;
+    margin-bottom: clamp(18px, 4vw, 24px);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -138,7 +144,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 0;
+    padding: clamp(10px, 2vw, 12px) 0;
     transition: background-color 0.2s ease;
 }
 
@@ -170,9 +176,9 @@ body {
 
 .config-section h2 {
     font-size: 16px;
-    font-weight: 500;
-    color: #666666;
-    margin-bottom: 24px;
+    font-weight: 400;
+    color: #333333;
+    margin-bottom: clamp(18px, 4vw, 24px);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -181,22 +187,23 @@ body {
 .config-form {
     display: flex;
     flex-direction: column;
-    gap: 30px;
+    gap: 0;
     max-width: 400px;
 }
 
 .form-field {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 2px;
+    margin-bottom: clamp(10px, 2vw, 12px);
 }
 
 .form-field label {
     font-weight: 400;
     color: #666666;
     font-size: 14px;
-    text-transform: uppercase;
     letter-spacing: 0.5px;
+    margin-top: clamp(10px, 2vw, 12px);
 }
 
 /* Base Field Container - applies to all input wrapper types */
@@ -223,9 +230,10 @@ body {
 .url-field input,
 .password-field input {
     flex: 1;
-    padding: 16px 0;
+    padding: 6px 0;
     border: none;
     background: transparent;
+    line-height: 1.2;
     font-size: 15px;
     font-family: inherit;
     min-width: 0; /* Prevent flex overflow */
@@ -241,29 +249,25 @@ body {
 /* Clean Password Toggle Effects */
 .password-toggle {
     border: none;
-    background: transparent !important;  /* Force override Safari defaults */
+    background: transparent !important;
     color: #999999;
     cursor: pointer;
-    padding: 12px;
+    padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 4px;
     transition: all 0.2s ease;
     flex-shrink: 0;
-    width: 44px;
-    height: 44px;
-    -webkit-appearance: none;            /* Remove Safari button styling */
-    appearance: none;                    /* Remove default button styling */
-    -webkit-tap-highlight-color: transparent;  /* Remove Safari tap highlight */
-
-     /* Disable text selection */
+    width: 20px;
+    height: 20px;
+    -webkit-appearance: none;
+    appearance: none;
+    -webkit-tap-highlight-color: transparent;
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
     user-select: none;
-    
-    /* Disable touch callout (long press menu) */
     -webkit-touch-callout: none;
 }
 
@@ -271,12 +275,12 @@ body {
 .password-toggle:hover {
     color: #333333;
     transform: scale(1.05);
-    background: transparent !important;  /* Ensure no background on hover */
+    background: transparent !important;
 }
 
 /* Explicitly override active state on all devices */
 .password-toggle:active {
-    background: transparent !important;  /* Force no background on active */
+    background: transparent !important;
     color: #333333;
     transform: scale(1.00);
 }
@@ -301,32 +305,34 @@ body {
 }
 
 .password-toggle svg {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
     pointer-events: none;
     transition: inherit;
 }
 
-/* Submit Buttons */
+/* Submit Buttons - responsive sizing */
 .submit-button {
-    background: #4a4a4a;
-    color: white;
-    border: none;
-    padding: 18px 40px;
-    font-weight: 500;
+    background: white;
+    color: #4a4a4a;
+    border: 1px solid #4a4a4a;
+    width: clamp(50%, 55%, 60%);
+    padding: clamp(16px, 3vw, 18px) 40px;
+    font-weight: 400;
     font-size: 14px;
     font-family: inherit;
-    margin-top: 10px;
+    margin-top: clamp(12px, 2.5vw, 16px);
     cursor: pointer;
     transition: all 0.3s ease;
     text-transform: uppercase;
     letter-spacing: 1px;
-    border-radius: 2px;
-    align-self: flex-start;
+    border-radius: 6px;
+    align-self: center;
 }
 
 .submit-button:hover {
-    background: #333333;
+    background: #666666;
+    color: #cccccc;
     transform: translateY(-1px);
 }
 
@@ -366,28 +372,36 @@ body {
     padding-left: 16px;
 }
 
-/* Footer */
+/* Footer - responsive padding */
 .app-footer {
-    padding: 40px 0 20px;
+    padding: clamp(30px, 6vw, 40px) 0 clamp(15px, 3vw, 20px);
     text-align: center;
     color: #999999;
     font-size: 13px;
     margin-top: auto;
 }
 
-/* Modal Styles - Updated for Accessibility */
+/* Modal Styles - responsive sizing */
 .modal-overlay {
     position: fixed;
     top: 0;
     left: 0;
     width: 100vw;
     height: 100vh;
-    background-color: rgba(255, 255, 255, 0.95);
+    background-color: rgba(255, 255, 255, 0);  /* Start transparent */
     z-index: 9999;
     display: flex;
     justify-content: center;
     align-items: center;
-    backdrop-filter: blur(4px);
+    backdrop-filter: blur(0px);  /* Start with no blur */
+    opacity: 0;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-overlay.show {
+    background-color: rgba(255, 255, 255, 0.95);  /* Fade to visible */
+    backdrop-filter: blur(4px);  /* Blur effect */
+    opacity: 1;
 }
 
 .modal-overlay[hidden] {
@@ -397,112 +411,246 @@ body {
 .modal-content {
     background: #ffffff;
     border: 1px solid #e5e5e5;
-    padding: 60px;
-    max-width: 500px;
+    padding: 32px;
+    max-width: 380px;
     width: 90vw;
-    max-height: 80vh;
-    overflow-y: auto;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    transform: translateY(20px) scale(0.95);  /* Start slightly below and smaller */
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.modal-header {
-    background: #1a1a1a;
-    color: white;
-    padding: 24px;
-    margin: -60px -60px 40px -60px;
+.modal-overlay.show .modal-content {
+    transform: translateY(0) scale(1);  /* Slide up and scale to normal */
 }
 
-.modal-header h3 {
-    color: white;
+.universal-guidance h3 {
+    font-size: 17px;
+    font-weight: 400;
+    color: #1a1a1a;
+    margin-bottom: 6px;
+    text-align: center;
+}
+
+.universal-guidance > p {
+    font-size: 14px;
+    color: #666666;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.status-checks {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.status-option {
+    padding: 16px;
+    border-radius: 6px;
+    border: 1px solid #e5e5e5;
+    background: #fafafa;
+}
+
+.status-option.success {
+    background: #f0f8ff;
+    border-color: #b3d9ff;
+
+}
+
+.status-option.fallback {
+    background: #f0fff0;
+    border-color: #b3ffb3;
+}
+
+.status-option h4 {
+    font-size: 14px;
+    font-weight: 500;
+    color: #1a1a1a;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    line-height: 1.3;
+}
+
+.status-option p {
+    font-size: 13px;
+    color: #333333;
+    margin: 4px 0 0 24px;
+    line-height: 1.4;
+}
+
+.led-indicator {
+    font-size: 14px;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+.led-indicator.blue {
+    color: #2196f3;
+}
+
+.led-indicator.green {
+    color: #4caf50;
+}
+
+.option-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 6px 0;
+}
+
+.option-divider::before,
+.option-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #e5e5e5;
+}
+
+.option-divider::before {
+    margin-right: 16px;
+}
+
+.option-divider::after {
+    margin-left: 16px;
+}
+
+.option-divider span {
+    font-size: 13px;
+    color: #999999;
+    font-weight: 500;
+}
+
+.next-step {
+    padding: 16px;
+    border-radius: 6px;
+    margin: 20px 0;
+}
+
+.next-step p {
+    font-size: 14px;
+    color: #4a4a4a;
     margin: 0;
     font-weight: 400;
-    font-size: 16px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
 }
 
-.modal-body {
-    line-height: 1.6;
-    color: #1a1a1a;
+.password-display {
+    font-family: 'SF Mono', 'Monaco', monospace;
+    background: #f0f0f0;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-weight: 500;
+    font-size: 12px;
+}
+
+.led-fallback {
+    padding: 12px;
+    background: #fff9f0;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    border: 1px solid #ffe8cc;
+}
+
+.led-fallback p {
+    font-size: 13px;
+    color: #4a4a4a;
+    margin: 0;
+    line-height: 1.4;
 }
 
 .modal-footer {
-    padding-top: 40px;
     display: flex;
-    gap: 16px;
-    justify-content: flex-end;
+    justify-content: center;
+    padding-top: 16px;
 }
 
-/* Container Queries for Responsive Design */
-@container (max-width: 400px) {
-    .metrics-grid {
-        grid-template-columns: 1fr;
-        gap: 30px;
+.modal-btn {
+    background: white;
+    color: #666666;
+    border: 1px solid #e5e5e5;
+    padding: 12px 20px;
+    font-weight: 500;
+    font-size: 13px;
+    cursor: pointer;
+    border-radius: 5px;
+    width: 120px;
+    transition: all 0.2s ease;
+}
+
+.modal-btn.primary {
+    background: #5a5a5a;
+    color: white;
+    border-color: #5a5a5a;
+}
+
+.modal-btn:hover {
+    transform: translateY(-1px);
+}
+
+.modal-btn.primary:hover {
+    background: #333333;
+}
+
+/* Toast styles */
+.toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 10000;
+    opacity: 0;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+.toast.success {
+    background: #f0fff0;
+    color: #4caf50;
+    border: 1px solid #b3ffb3;
+}
+
+.toast.error {
+    background: #fff0f0;
+    color: #cc0000;
+    border: 1px solid #ffb3b3;
+}
+
+/* Responsive adjustments for modal */
+@media (max-width: 480px) {
+    .modal-content {
+        padding: 24px;
     }
     
+    .status-option {
+        padding: 12px;
+    }
+    
+    .modal-footer {
+        gap: 8px;
+    }
+}
+
+/* Container Queries - simplified and clean */
+@container (max-width: 350px) {
     .metric-card {
-        padding: 20px 0;
-    }
-    
-    .config-form {
-        max-width: 100%;
+        padding: 16px 0;
     }
     
     .submit-button {
-        width: 100%;
-        padding: 16px 20px;
-    }
-}
-
-@container (max-width: 300px) {
-    .password-toggle {
-        width: 40px;
-        height: 40px;
-        padding: 10px;
-    }
-    
-    .password-toggle svg {
-        width: 18px;
-        height: 18px;
-    }
-}
-
-@container (min-width: 500px) {
-    .metrics-grid {
-        gap: 50px;
-    }
-    
-    .status-item {
-        padding: 14px 0;
-    }
-    
-    .config-form {
-        gap: 35px;
-    }
-}
-
-/* Global Media Queries for App Container */
-@media (max-width: 768px) {
-    .app-container {
-        padding: 0 20px;
-    }
-    
-    .dashboard {
-        gap: 50px;
-    }
-    
-    .app-header {
-        padding: 30px 0 15px;
-    }
-    
-    .modal-content {
-        padding: 40px;
-        width: 95vw;
-    }
-    
-    .modal-header {
-        margin: -40px -40px 30px -40px;
-        padding: 20px;
+        width: 85%;
+        padding: 14px 20px;
     }
 }
 
@@ -520,4 +668,21 @@ body {
         transition-duration: 0.01ms !important;
         scroll-behavior: auto !important;
     }
+}
+
+/* Hide semantic and accessibility text for cleaner UI */
+.form-description {
+    display: none;
+}
+
+.field-help {
+    display: none;
+}
+
+.app-subtitle {
+    display: none;
+}
+
+.form-messages {
+    display: none;
 }
