@@ -5,4 +5,5 @@ idf_component_register(
              "freertos"
              "esp_common"
              "esp_timer"
+             "error_handler"
 )

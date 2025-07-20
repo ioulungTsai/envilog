@@ -1,10 +1,11 @@
+#include <string.h>
 #include "builtin_led.h"
 #include "driver/rmt_tx.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "math.h"
-#include <string.h>
+#include "error_handler.h"
 
 static const char *TAG = "builtin_led";
 
@@ -240,7 +241,7 @@ static esp_err_t setup_rmt_encoder(void)
     
     esp_err_t ret = rmt_new_tx_channel(&tx_chan_config, &led_chan);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to create RMT TX channel: %s", esp_err_to_name(ret));
+        ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_HARDWARE, "Failed to create RMT TX channel");
         return ret;
     }
 
@@ -250,14 +251,14 @@ static esp_err_t setup_rmt_encoder(void)
     };
     ret = rmt_new_led_strip_encoder(&encoder_config, &led_encoder);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to create LED encoder: %s", esp_err_to_name(ret));
+        ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_HARDWARE, "Failed to create LED encoder");
         return ret;
     }
 
     ESP_LOGI(TAG, "Enable RMT TX channel");
     ret = rmt_enable(led_chan);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to enable RMT channel: %s", esp_err_to_name(ret));
+        ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_HARDWARE, "Failed to enable RMT channel");
         return ret;
     }
 
@@ -357,7 +358,7 @@ static void led_animation_task(void *pvParameters)
 esp_err_t builtin_led_init(void)
 {
     if (led_initialized) {
-        ESP_LOGW(TAG, "LED already initialized");
+        ERROR_LOG_WARNING(TAG, ESP_ERR_INVALID_STATE, ERROR_CAT_SYSTEM, "LED already initialized");
         return ESP_OK;
     }
 
@@ -365,7 +366,7 @@ esp_err_t builtin_led_init(void)
 
     esp_err_t ret = setup_rmt_encoder();
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to setup RMT encoder");
+        ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_HARDWARE, "Failed to setup RMT encoder");
         return ret;
     }
 
@@ -380,7 +381,7 @@ esp_err_t builtin_led_init(void)
     );
 
     if (task_ret != pdPASS) {
-        ESP_LOGE(TAG, "Failed to create LED animation task");
+        ERROR_LOG_ERROR(TAG, ESP_FAIL, ERROR_CAT_SYSTEM, "Failed to create LED animation task");
         return ESP_FAIL;
     }
 
@@ -394,7 +395,7 @@ esp_err_t builtin_led_init(void)
 esp_err_t builtin_led_set_status(led_status_t status)
 {
     if (!led_initialized) {
-        ESP_LOGE(TAG, "LED not initialized");
+        ERROR_LOG_ERROR(TAG, ESP_ERR_INVALID_STATE, ERROR_CAT_SYSTEM, "LED not initialized");
         return ESP_ERR_INVALID_STATE;
     }
 

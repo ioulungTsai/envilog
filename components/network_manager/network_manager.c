@@ -55,7 +55,7 @@ static void update_status_led(led_status_t status) {
     if (led_available) {
         esp_err_t ret = builtin_led_set_status(status);
         if (ret != ESP_OK) {
-            ESP_LOGW(TAG, "Failed to update LED status: %s", esp_err_to_name(ret));
+            ERROR_LOG_WARNING(TAG, ret, ERROR_CAT_HARDWARE, "Failed to update LED status");
         }
     }
 }
@@ -102,7 +102,8 @@ esp_err_t network_manager_init(void)
         led_available = true;
         ESP_LOGI(TAG, "Status LED initialized successfully");
     } else {
-        ESP_LOGW(TAG, "Status LED initialization failed - continuing without LED status");
+        ERROR_LOG_WARNING(TAG, ESP_FAIL, ERROR_CAT_HARDWARE,
+            "Status LED initialization failed - continuing without LED status");
         led_available = false;
     }
 
@@ -295,7 +296,7 @@ static esp_err_t configure_ap_mode(void)
     // Wait for WiFi to be in a stable state
     esp_err_t ret = esp_wifi_stop();
     if (ret != ESP_OK && ret != ESP_ERR_WIFI_NOT_STARTED) {
-        ESP_LOGW(TAG, "WiFi stop returned: %s", esp_err_to_name(ret));
+        ERROR_LOG_WARNING(TAG, ret, ERROR_CAT_NETWORK, "WiFi stop returned: %s", esp_err_to_name(ret));
     }
     
     // Small delay to ensure WiFi stack is ready
@@ -314,19 +315,19 @@ static esp_err_t configure_ap_mode(void)
 
     ret = esp_wifi_set_mode(WIFI_MODE_AP);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to set AP mode: %s", esp_err_to_name(ret));
+        ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_NETWORK, "Failed to set AP mode");
         return ret;
     }
     
     ret = esp_wifi_set_config(WIFI_IF_AP, &wifi_config);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to set AP config: %s", esp_err_to_name(ret));
+        ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_NETWORK, "Failed to set AP config");
         return ret;
     }
     
     ret = esp_wifi_start();
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to start AP: %s", esp_err_to_name(ret));
+        ERROR_LOG_ERROR(TAG, ret, ERROR_CAT_NETWORK, "Failed to start AP");
         return ret;
     }
     

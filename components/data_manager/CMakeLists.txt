@@ -4,4 +4,5 @@ idf_component_register(
     REQUIRES "esp_common"
              "freertos"
              "dht11_sensor"
+             "error_handler"
 )

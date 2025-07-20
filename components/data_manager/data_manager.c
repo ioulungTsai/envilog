@@ -1,6 +1,7 @@
+#include <string.h>
 #include "data_manager.h"
 #include "esp_log.h"
-#include <string.h>
+#include "error_handler.h"
 
 static const char *TAG = "data_manager";
 
@@ -11,7 +12,7 @@ static bool initialized = false;
 
 esp_err_t data_manager_init(const data_manager_config_t *cfg) {
     if (cfg == NULL) {
-        ESP_LOGE(TAG, "Configuration cannot be NULL");
+        ERROR_LOG_ERROR(TAG, ESP_ERR_INVALID_ARG, ERROR_CAT_VALIDATION, "Configuration cannot be NULL");
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -25,12 +26,12 @@ esp_err_t data_manager_init(const data_manager_config_t *cfg) {
 
 esp_err_t data_manager_publish_sensor_data(const char *source, const dht11_reading_t *reading) {
     if (!initialized) {
-        ESP_LOGE(TAG, "Data manager not initialized");
+        ERROR_LOG_ERROR(TAG, ESP_ERR_INVALID_STATE, ERROR_CAT_SYSTEM, "Data manager not initialized");
         return ESP_ERR_INVALID_STATE;
     }
     
     if (source == NULL || reading == NULL) {
-        ESP_LOGE(TAG, "Invalid parameters");
+        ERROR_LOG_ERROR(TAG, ESP_ERR_INVALID_ARG, ERROR_CAT_VALIDATION, "Invalid parameters");
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -46,7 +47,7 @@ esp_err_t data_manager_publish_sensor_data(const char *source, const dht11_readi
         if (config.mqtt_callback != NULL) {
             esp_err_t ret = config.mqtt_callback(reading);
             if (ret != ESP_OK) {
-                ESP_LOGW(TAG, "MQTT callback failed: %s", esp_err_to_name(ret));
+                ERROR_LOG_WARNING(TAG, ret, ERROR_CAT_COMMUNICATION, "MQTT callback failed");
             }
         }
     }
@@ -56,12 +57,12 @@ esp_err_t data_manager_publish_sensor_data(const char *source, const dht11_readi
 
 esp_err_t data_manager_get_latest_data(const char *source, dht11_reading_t *reading) {
     if (!initialized) {
-        ESP_LOGE(TAG, "Data manager not initialized");
+        ERROR_LOG_ERROR(TAG, ESP_ERR_INVALID_STATE, ERROR_CAT_SYSTEM, "Data manager not initialized");
         return ESP_ERR_INVALID_STATE;
     }
     
     if (source == NULL || reading == NULL) {
-        ESP_LOGE(TAG, "Invalid parameters");
+        ERROR_LOG_ERROR(TAG, ESP_ERR_INVALID_ARG, ERROR_CAT_VALIDATION, "Invalid parameters");
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -71,6 +72,6 @@ esp_err_t data_manager_get_latest_data(const char *source, dht11_reading_t *read
         return ESP_OK;
     }
 
-    ESP_LOGW(TAG, "Unknown sensor source: %s", source);
+    ERROR_LOG_WARNING(TAG, ESP_ERR_NOT_FOUND, ERROR_CAT_VALIDATION, "Unknown sensor source: %s", source);
     return ESP_ERR_NOT_FOUND;
 }
