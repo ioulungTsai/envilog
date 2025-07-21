@@ -2,7 +2,7 @@
 
 // Project version
 #define ENVILOG_VERSION_MAJOR    0
-#define ENVILOG_VERSION_MINOR    1
+#define ENVILOG_VERSION_MINOR    3
 #define ENVILOG_VERSION_PATCH    0
 
 // System configuration
